@@ -1,0 +1,631 @@
+/* ========================================
+   MAIN DOCK CONTAINER 
+   ========================================
+*/
+.dock-container {
+  position: fixed;
+  left: 50%;
+  bottom: 3%;
+  transform-origin: bottom center;
+
+  /* Glassmorphism */
+  background-color: rgba(15, 15, 15, 0.5);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+
+  will-change: transform;
+  z-index: 9999;
+
+  /* Extra bottom padding to make room for the embedded progress bar */
+  padding-bottom: 8px;
+}
+
+/* Visibility Animations */
+.dock-container.is-visible {
+  animation: pop-up-squash 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+.dock-container.is-hidden {
+  animation: drop-down-hide 0.4s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+/* ========================================
+   INNER CONTENT & GAP EXPANSION PHYSICS
+   ========================================
+*/
+.content {
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+
+  /* BASE GAP */
+  column-gap: 8px;
+  transition: column-gap 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* INCREASES ALL GAPS ON HOVER */
+.content:hover {
+  column-gap: 18px;
+}
+
+/* Small dividers between sections */
+.dock-separator {
+  width: 1px;
+  height: 20px;
+  background-color: rgba(255, 255, 255, 0.15);
+  transition: opacity 0.3s;
+}
+
+/* Fade dividers slightly when dock expands */
+.content:hover .dock-separator {
+  opacity: 0.2;
+}
+
+/* ========================================
+   ICON HOVER PHYSICS
+   ========================================
+*/
+.icon-wrapper {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.icons {
+  padding: 4px;
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+  transform-origin: bottom;
+  margin: 0;
+}
+
+/* Individual Icon Growth & Pushing */
+.icons:hover {
+  transform: scale3d(1.35, 1.35, 1);
+  margin: 0px 12px; /* Pushes neighboring icons away slightly */
+}
+
+/* Custom Play Button Tweaks */
+.play-btn {
+  filter: drop-shadow(0px 2px 8px rgba(140, 122, 230, 0.5));
+}
+.play-nudge {
+  margin-left: 2px; /* Centers the play triangle perfectly */
+}
+
+/* ========================================
+   EMBEDDED MINI PROGRESS BAR
+   ========================================
+*/
+.mini-progress-container {
+  position: absolute;
+  bottom: 4px;
+  left: 10%;
+  width: 80%;
+  height: 2px;
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.mini-progress-fill {
+  width: 30%; /* Mock progress */
+  height: 100%;
+  background-color: #ff7675; /* The orange/pink from your screenshot */
+  border-radius: 2px;
+}
+
+/* ========================================
+   TOOLTIPS
+   ========================================
+*/
+.tooltip {
+  position: absolute;
+  top: -45px;
+
+  background-color: rgba(20, 20, 20, 0.85);
+  color: white;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: sans-serif;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+
+  opacity: 0;
+  transform: translateY(10px) scale(0.9);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.icon-wrapper:hover .tooltip {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Custom layout for the Track Info tooltip */
+.track-tooltip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  top: -60px; /* Needs to be higher to fit two lines */
+}
+
+.track-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.track-subtitle {
+  font-weight: 400;
+  font-size: 11px;
+  color: #a0a0a0;
+}
+
+/* ========================================
+   KEYFRAMES (From Repo)
+   ========================================
+*/
+@keyframes pop-up-squash {
+  0% {
+    transform: translateX(-50%) translateY(150px) scale3d(0.8, 1.2, 1);
+  }
+  40% {
+    transform: translateX(-50%) translateY(-8px) scale3d(0.92, 1.08, 1);
+  }
+  65% {
+    transform: translateX(-50%) translateY(4px) scale3d(1.04, 0.96, 1);
+  }
+  85% {
+    transform: translateX(-50%) translateY(-2px) scale3d(0.99, 1.01, 1);
+  }
+  100% {
+    transform: translateX(-50%) translateY(0) scale3d(1, 1, 1);
+  }
+}
+
+@keyframes drop-down-hide {
+  0% {
+    transform: translateX(-50%) translateY(0) scale3d(1, 1, 1);
+  }
+  30% {
+    transform: translateX(-50%) translateY(4px) scale3d(1.05, 0.95, 1);
+  }
+  100% {
+    transform: translateX(-50%) translateY(150px) scale3d(0.8, 1.2, 1);
+  }
+}
+
+/* ========================================
+   FULL SCREEN PLAYER OVERLAY
+   ========================================
+*/
+.fullscreen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 99999; /* Under cursor tooltips, but over everything else */
+  
+  /* Glassmorphism Backdrop */
+  background: rgba(10, 10, 12, 0.82);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 48px 24px;
+  box-sizing: border-box;
+
+  /* Entrance Transitions */
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.5s cubic-bezier(0.19, 1, 0.22, 1), 
+              visibility 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.fullscreen-overlay.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* Ambient dynamic colored glow */
+.fullscreen-ambient-glow {
+  position: absolute;
+  top: -10%;
+  left: -10%;
+  width: 120%;
+  height: 120%;
+  z-index: 1;
+  background-size: cover;
+  background-position: center;
+  filter: blur(80px);
+  opacity: 0;
+  transition: opacity 0.8s ease;
+  mix-blend-mode: color-dodge;
+  pointer-events: none;
+}
+
+.fullscreen-overlay.active .fullscreen-ambient-glow {
+  opacity: 0.22;
+}
+
+/* Content wrapper */
+.fullscreen-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 520px;
+  height: 100%;
+  max-height: 720px;
+  box-sizing: border-box;
+}
+
+/* Header Close Button and Title */
+.fullscreen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.fullscreen-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.05);
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.fullscreen-close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.fullscreen-header-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 2.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: 'Outfit', 'Inter', sans-serif;
+}
+
+/* Album Art container & custom expansion transition */
+.fullscreen-art-container {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 16px 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.fullscreen-album-art {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  object-fit: contain;
+  opacity: 0;
+  transform: translate3d(-18vw, 38vh, 0) scale(0.08);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  transform-origin: center center;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.6s ease,
+              border-radius 0.6s ease,
+              box-shadow 0.6s ease;
+}
+
+.fullscreen-placeholder-art {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  transform-origin: center center;
+  opacity: 0;
+  transform: translate3d(-18vw, 38vh, 0) scale(0.08);
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.6s ease,
+              border-radius 0.6s ease,
+              box-shadow 0.6s ease;
+}
+
+/* Symmetric Scaling Transitions on Active Class */
+.fullscreen-overlay.active .fullscreen-album-art,
+.fullscreen-overlay.active .fullscreen-placeholder-art {
+  transform: translate3d(0, 0, 0) scale(1);
+  border-radius: 20px;
+  opacity: 1;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.5), 0 0 35px rgba(140, 122, 230, 0.25);
+}
+
+/* Metadata Block */
+.fullscreen-metadata {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 24px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  opacity: 0;
+  transform: translateY(24px);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.5s ease;
+}
+
+.fullscreen-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-grow: 1;
+  text-align: left;
+}
+
+.fullscreen-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  letter-spacing: -0.4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
+}
+
+.fullscreen-artist {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
+}
+
+.fullscreen-like-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.03);
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.fullscreen-like-btn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Controls layout */
+.fullscreen-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 28px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  opacity: 0;
+  transform: translateY(24px);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.5s ease;
+}
+
+.fullscreen-control-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.fullscreen-control-btn:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.fullscreen-control-btn.play-pause-wrapper:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 24px rgba(140, 122, 230, 0.2);
+}
+
+/* Override .icons:hover transforms and margins inside fullscreen overlay */
+.fullscreen-overlay .icons:hover {
+  transform: none !important;
+  margin: 0 !important;
+}
+
+.fullscreen-control-btn.play-pause-wrapper {
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  width: 64px;
+  height: 64px;
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.fullscreen-control-btn.play-pause-wrapper:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 24px rgba(140, 122, 230, 0.2);
+}
+
+/* Progress bar container */
+.fullscreen-progress-container {
+  width: 100%;
+  margin-top: 28px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  opacity: 0;
+  transform: translateY(24px);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.5s ease;
+}
+
+.fullscreen-progress-bar {
+  width: 100%;
+  height: 4px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  position: relative;
+  cursor: pointer;
+}
+
+.fullscreen-progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%; /* Demo position */
+  height: 100%;
+  background: linear-gradient(90deg, #8c7ae6, #ff7675);
+  border-radius: 2px;
+}
+
+.fullscreen-time-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 8px;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Symmetric transitions on active class */
+.fullscreen-overlay.active .fullscreen-metadata,
+.fullscreen-overlay.active .fullscreen-controls,
+.fullscreen-overlay.active .fullscreen-progress-container {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.fullscreen-layout-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 48px;
+  width: 100%;
+  height: 100%;
+  max-width: 1000px;
+  z-index: 2;
+  box-sizing: border-box;
+}
+
+.fullscreen-queue-sidebar {
+  width: 320px;
+  height: 100%;
+  max-height: 720px;
+  background: rgba(20, 20, 25, 0.45);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  animation: slideInQueue 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Force override RightQueue sidebar layout inside fullscreen overlay */
+.fullscreen-queue-sidebar .right-queue {
+  margin-right: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: transparent !important;
+  border: none !important;
+  box-sizing: border-box;
+  padding: 16px;
+}
+
+.fullscreen-queue-sidebar .right-queue .queue-list {
+  max-height: calc(100vh - 200px) !important;
+}
+
+@keyframes slideInQueue {
+  from {
+    transform: translateX(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Spacing and scaling override for smaller height viewports */
+@media (max-height: 760px) {
+  .fullscreen-overlay {
+    padding: 24px 16px;
+  }
+  .fullscreen-art-container {
+    margin: 8px 0;
+  }
+  .fullscreen-metadata {
+    margin-top: 12px;
+  }
+  .fullscreen-controls {
+    margin-top: 14px;
+  }
+  .fullscreen-progress-container {
+    margin-top: 14px;
+  }
+  .fullscreen-title {
+    font-size: 20px;
+  }
+  .fullscreen-artist {
+    font-size: 13px;
+  }
+  .fullscreen-control-btn.play-pause-wrapper {
+    width: 52px;
+    height: 52px;
+  }
+}

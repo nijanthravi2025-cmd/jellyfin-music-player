@@ -1,0 +1,64 @@
+/* --- Container & Icon Styling --- */
+.search-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  width: 20px;
+  height: 20px;
+  color: #a0a0a0; /* Changed to light grey for dark mode */
+  pointer-events: none;
+}
+
+/* --- Search Box Styling --- */
+.search-box {
+  background-color: rgba(255, 255, 255, 0.1);
+  font-size: medium;
+  color: white; /* Changed to white so text is readable */
+
+  width: 150px;
+  border-radius: 20px;
+  border: 1px solid transparent; /* Keeps it clean before focus */
+
+  padding: 12px 20px 12px 40px;
+  box-sizing: border-box;
+
+  transition:
+    width 0.2s cubic-bezier(0.25, 0.8, 0.25, 1),
+    border-color 0.2s ease-out,
+    background-color 0.2s;
+}
+
+/* Added a subtle background shift on hover to make it feel clickable */
+.search-box:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.search-box:focus {
+  width: 350px;
+  outline: none;
+  border: 1px solid #6c5ce7; /* Changed to match your dock's purple accent! */
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* --- Customizing the Webkit "Clear" Button (The Cross) --- */
+.search-box::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+
+  /* Changed 'stroke=black' to 'stroke=%23a0a0a0' (hex code for #a0a0a0) */
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0a0a0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cline x1='18' y1='6' x2='6' y2='18'%3e%3c/line%3e%3cline x1='6' y1='6' x2='18' y2='18'%3e%3c/line%3e%3c/svg%3e");
+  background-size: contain;
+  cursor: pointer;
+}
+
+.search-box::-webkit-search-cancel-button:hover {
+  /* Makes the cross slightly brighter white when you hover over it */
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cline x1='18' y1='6' x2='6' y2='18'%3e%3c/line%3e%3cline x1='6' y1='6' x2='18' y2='18'%3e%3c/line%3e%3c/svg%3e");
+}

@@ -1,0 +1,646 @@
+import React, { useState, useEffect, useRef } from "react";
+import { X, GripVertical, MoreVertical, Edit3, Trash2, Clipboard, FolderPlus, Check, XCircle, Search, Music, Disc, ListMusic } from "lucide-react";
+import "./Sidebars.css";
+import "../pages/Songs.css"; // Reuse context-menu and modal styles
+import { playTrack } from "../utils/musicShared";
+
+const INITIAL_QUEUE = [
+  { id: 1, title: "After Hours", artist: "The Weeknd", path: "C:/Users/NIJANTH/Music/After Hours.mp3" },
+  { id: 2, title: "Blinding Lights", artist: "The Weeknd", path: "C:/Users/NIJANTH/Music/Blinding Lights.mp3" },
+  { id: 3, title: "Midnight City", artist: "M83", path: "C:/Users/NIJANTH/Downloads/Midnight City.wav" },
+];
+
+const INITIAL_SEARCH_SONGS = [
+  { id: 1, title: "After Hours", artist: "The Weeknd", album: "After Hours", duration: "6:01", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/After Hours.mp3" },
+  { id: 2, title: "Blinding Lights", artist: "The Weeknd", album: "After Hours", duration: "3:20", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Blinding Lights.mp3" },
+  { id: 3, title: "Midnight City", artist: "M83", album: "Hurry Up, We're Dreaming", duration: "4:03", image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Downloads/Midnight City.wav" },
+  { id: 4, title: "Strobe", artist: "deadmau5", album: "For Lack of a Better Name", duration: "10:37", image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=150&h=150", path: "D:/Media/Audio/Electronic/Strobe.flac" },
+  { id: 5, title: "Intro", artist: "The xx", album: "xx", duration: "2:08", image: "https://images.unsplash.com/photo-1460036521480-c4b50f6a6c11?auto=format&fit=crop&q=80&w=150&h=150", path: "D:/Media/Tracks/The xx - Intro.mp3" },
+  { id: 6, title: "Starboy", artist: "The Weeknd", album: "Starboy", duration: "3:50", image: "https://images.unsplash.com/photo-1493225457124-a1a2a5f5f9af?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Starboy.mp3" },
+  { id: 7, title: "Save Your Tears", artist: "The Weeknd", album: "After Hours", duration: "3:35", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Save Your Tears.mp3" },
+  { id: 8, title: "Get Lucky", artist: "Daft Punk", album: "Random Access Memories", duration: "6:09", image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Daft Punk/Get Lucky.mp3" },
+  { id: 9, title: "One More Time", artist: "Daft Punk", album: "Discovery", duration: "5:20", image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Daft Punk/One More Time.mp3" },
+  { id: 10, title: "Harder, Better, Faster, Stronger", artist: "Daft Punk", album: "Discovery", duration: "3:44", image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Daft Punk/Harder Better Faster Stronger.mp3" }
+];
+
+const INITIAL_SEARCH_ALBUMS = [
+  { id: 101, title: "After Hours", artist: "The Weeknd", year: "2020", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=250&h=250", path: "C:/Users/NIJANTH/Music/The Weeknd/After Hours" },
+  { id: 102, title: "Random Access Memories", artist: "Daft Punk", year: "2013", image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=250&h=250", path: "D:/Media/Music/Daft Punk/Random Access Memories" },
+  { id: 103, title: "Interstellar OST", artist: "Hans Zimmer", year: "2014", image: "https://images.unsplash.com/photo-1460036521480-c4b50f6a6c11?auto=format&fit=crop&q=80&w=250&h=250", path: "E:/Audio/Soundtracks/Interstellar OST" },
+  { id: 104, title: "When We All Fall Asleep", artist: "Billie Eilish", year: "2019", image: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&q=80&w=250&h=250", path: "C:/Users/NIJANTH/Music/Billie Eilish/When We All Fall Asleep" },
+  { id: 105, title: "Discovery", artist: "Daft Punk", year: "2001", image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=250&h=250", path: "D:/Media/Music/Daft Punk/Discovery" },
+  { id: 106, title: "Starboy", artist: "The Weeknd", year: "2016", image: "https://images.unsplash.com/photo-1493225457124-a1a2a5f5f9af?auto=format&fit=crop&q=80&w=250&h=250", path: "C:/Users/NIJANTH/Music/The Weeknd/Starboy" }
+];
+
+export default function RightQueue({ isOpen, onClose }) {
+  const [queue, setQueue] = useState(INITIAL_QUEUE);
+  const [playlists, setPlaylists] = useState([]);
+  const [activeMenuId, setActiveMenuId] = useState(null);
+
+  // Search States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState({ songs: [], albums: [], playlists: [] });
+
+  // Handle Search Query filtering
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults({ songs: [], albums: [], playlists: [] });
+      return;
+    }
+
+    const query = searchQuery.toLowerCase();
+
+    // 1. Search Songs
+    const savedSongsStr = localStorage.getItem("music_songs");
+    let allSongs = [];
+    if (savedSongsStr) {
+      try {
+        allSongs = JSON.parse(savedSongsStr);
+      } catch (e) {}
+    }
+    if (allSongs.length === 0) {
+      allSongs = INITIAL_SEARCH_SONGS;
+    }
+    const filteredSongs = allSongs.filter(
+      song => song.title.toLowerCase().includes(query) || song.artist.toLowerCase().includes(query)
+    );
+
+    // 2. Search Albums
+    const savedAlbumsStr = localStorage.getItem("music_albums");
+    let allAlbums = [];
+    if (savedAlbumsStr) {
+      try {
+        allAlbums = JSON.parse(savedAlbumsStr);
+      } catch (e) {}
+    }
+    if (allAlbums.length === 0) {
+      allAlbums = INITIAL_SEARCH_ALBUMS;
+    }
+    const filteredAlbums = allAlbums.filter(
+      album => album.title.toLowerCase().includes(query) || album.artist.toLowerCase().includes(query)
+    );
+
+    // 3. Search Playlists
+    const savedPlaylistsStr = localStorage.getItem("music_playlists");
+    let allPlaylists = [];
+    if (savedPlaylistsStr) {
+      try {
+        allPlaylists = JSON.parse(savedPlaylistsStr);
+      } catch (e) {}
+    } else {
+      allPlaylists = ["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights", "Heavy Rock Anthems"];
+    }
+    const filteredPlaylists = allPlaylists.filter(
+      plName => plName.toLowerCase().includes(query)
+    );
+
+    setSearchResults({
+      songs: filteredSongs.slice(0, 5),
+      albums: filteredAlbums.slice(0, 5),
+      playlists: filteredPlaylists.slice(0, 5)
+    });
+  }, [searchQuery]);
+
+  // Click Handlers to add to queue
+  const handleAddSongToQueue = (song) => {
+    const nextId = queue.length > 0 ? Math.max(...queue.map(t => t.id)) + 1 : 1;
+    const newTrack = {
+      id: nextId,
+      title: song.title,
+      artist: song.artist,
+      album: song.album || "",
+      duration: song.duration || "3:00",
+      image: song.image || "",
+      path: song.path || ""
+    };
+    setQueue(prev => [...prev, newTrack]);
+    showToast(`Added "${song.title}" to queue.`);
+  };
+
+  const handleAddAlbumToQueue = (album) => {
+    const savedSongsStr = localStorage.getItem("music_songs");
+    let allSongs = [];
+    if (savedSongsStr) {
+      try {
+        allSongs = JSON.parse(savedSongsStr);
+      } catch (e) {}
+    }
+    if (allSongs.length === 0) {
+      allSongs = INITIAL_SEARCH_SONGS;
+    }
+    const albumSongs = allSongs.filter(
+      song => song.album && song.album.toLowerCase() === album.title.toLowerCase()
+    );
+
+    if (albumSongs.length === 0) {
+      showToast(`No songs found in album "${album.title}".`);
+      return;
+    }
+
+    setQueue(prev => {
+      let currentMax = prev.length > 0 ? Math.max(...prev.map(t => t.id)) : 0;
+      const newTracks = albumSongs.map(song => ({
+        id: ++currentMax,
+        title: song.title,
+        artist: song.artist,
+        album: song.album || "",
+        duration: song.duration || "3:00",
+        image: song.image || "",
+        path: song.path || ""
+      }));
+      return [...prev, ...newTracks];
+    });
+
+    showToast(`Added ${albumSongs.length} songs from "${album.title}" to queue.`);
+  };
+
+  const handleAddPlaylistToQueue = (playlistName) => {
+    const savedSongsStr = localStorage.getItem(`music_playlist_songs_${playlistName}`);
+    let playlistSongs = [];
+    if (savedSongsStr) {
+      try {
+        playlistSongs = JSON.parse(savedSongsStr);
+      } catch (e) {}
+    }
+
+    if (playlistSongs.length === 0) {
+      showToast(`Playlist "${playlistName}" is empty.`);
+      return;
+    }
+
+    setQueue(prev => {
+      let currentMax = prev.length > 0 ? Math.max(...prev.map(t => t.id)) : 0;
+      const newTracks = playlistSongs.map(song => ({
+        id: ++currentMax,
+        title: song.title,
+        artist: song.artist,
+        album: song.album || "",
+        duration: song.duration || "3:00",
+        image: song.image || "",
+        path: song.path || ""
+      }));
+      return [...prev, ...newTracks];
+    });
+
+    showToast(`Added ${playlistSongs.length} songs from playlist "${playlistName}" to queue.`);
+  };
+  
+  // Drag and Drop States
+  const [draggedIndex, setDraggedIndex] = useState(null);
+
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+
+    const updatedQueue = [...queue];
+    const draggedItem = updatedQueue[draggedIndex];
+    updatedQueue.splice(draggedIndex, 1);
+    updatedQueue.splice(index, 0, draggedItem);
+    setDraggedIndex(index);
+    setQueue(updatedQueue);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
+  
+  // Rename Modal States
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [renameItem, setRenameItem] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editArtist, setEditArtist] = useState("");
+  
+  const [toast, setToast] = useState("");
+  
+  const activeMenuRef = useRef(null);
+
+  // Load playlists from localStorage
+  useEffect(() => {
+    const loadPlaylistsList = () => {
+      const saved = localStorage.getItem("music_playlists");
+      if (saved) {
+        try {
+          setPlaylists(JSON.parse(saved));
+        } catch (e) {
+          setPlaylists(["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights", "Heavy Rock Anthems"]);
+        }
+      } else {
+        const defaultPL = ["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights", "Heavy Rock Anthems"];
+        localStorage.setItem("music_playlists", JSON.stringify(defaultPL));
+        setPlaylists(defaultPL);
+      }
+    };
+    
+    loadPlaylistsList();
+    window.addEventListener("playlistsChanged", loadPlaylistsList);
+    return () => window.removeEventListener("playlistsChanged", loadPlaylistsList);
+  }, []);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (activeMenuRef.current && !activeMenuRef.current.contains(event.target)) {
+        setActiveMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Listen to global add-to-queue event
+  useEffect(() => {
+    const handleAddToQueue = (e) => {
+      if (e.detail) {
+        setQueue(prevQueue => [...prevQueue, e.detail]);
+      }
+    };
+    window.addEventListener("addToQueue", handleAddToQueue);
+    return () => window.removeEventListener("addToQueue", handleAddToQueue);
+  }, []);
+
+  const showToast = (message) => {
+    setToast(message);
+    setTimeout(() => {
+      setToast("");
+    }, 4000);
+  };
+
+  const handleRenameClick = (track) => {
+    setRenameItem(track);
+    setEditTitle(track.title);
+    setEditArtist(track.artist);
+    setIsRenameModalOpen(true);
+    setActiveMenuId(null);
+  };
+
+  const handleSaveRename = () => {
+    if (!renameItem || !editTitle.trim()) return;
+    const trimmedTitle = editTitle.trim();
+    const trimmedArtist = editArtist.trim();
+
+    let changes = [];
+    if (renameItem.title !== trimmedTitle) changes.push(`Song name changed to "${trimmedTitle}"`);
+    if (renameItem.artist !== trimmedArtist) changes.push(`Artist name changed to "${trimmedArtist}"`);
+
+    setQueue(queue.map(t => t.id === renameItem.id ? { 
+      ...t, 
+      title: trimmedTitle,
+      artist: trimmedArtist
+    } : t));
+
+    setIsRenameModalOpen(false);
+    setRenameItem(null);
+
+    if (changes.length > 0) {
+      showToast(changes.join(", "));
+    } else {
+      showToast("No details were changed.");
+    }
+  };
+
+  const handleRemoveTrack = (id) => {
+    setQueue(queue.filter(t => t.id !== id));
+    setActiveMenuId(null);
+    showToast("Removed from queue.");
+  };
+
+  const handleAddToPlaylist = (song, playlistName) => {
+    setActiveMenuId(null);
+    const saved = localStorage.getItem(`music_playlist_songs_${playlistName}`);
+    let playlistSongs = [];
+    if (saved) {
+      try {
+        playlistSongs = JSON.parse(saved);
+      } catch (e) {}
+    }
+
+    if (playlistSongs.some(s => s.id === song.id)) {
+      showToast(`"${song.title}" is already in "${playlistName}"`);
+      return;
+    }
+
+    const updated = [...playlistSongs, song];
+    localStorage.setItem(`music_playlist_songs_${playlistName}`, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent("playlistsChanged"));
+    showToast(`Added "${song.title}" to "${playlistName}"`);
+  };
+
+  const handleCreatePlaylist = (song) => {
+    setActiveMenuId(null);
+    window.dispatchEvent(new CustomEvent("open-create-playlist-modal", {
+      detail: { song }
+    }));
+  };
+
+  const handleViewLocation = (track) => {
+    setActiveMenuId(null);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(track.path);
+      showToast(`Copied location: ${track.path}`);
+    } else {
+      showToast(`Location: ${track.path}`);
+    }
+  };
+
+  const handleClearQueue = () => {
+    setQueue([]);
+    showToast("Queue cleared.");
+  };
+
+  return (
+    <aside className={`right-queue ${isOpen ? "open" : ""}`} style={{ position: "relative" }}>
+      {toast && <div className="toast-banner" style={{ bottom: "24px", right: "24px", fontSize: "12px", padding: "8px 16px" }}>{toast}</div>}
+
+      <div className="queue-header">
+        <h3>Next in Queue</h3>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {queue.length > 0 && (
+            <button 
+              onClick={handleClearQueue}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#ff7675",
+                fontSize: "12px",
+                fontWeight: "700",
+                cursor: "pointer",
+                padding: "4px 8px",
+                borderRadius: "6px",
+                transition: "all 0.2s"
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = "rgba(255, 118, 117, 0.1)"}
+              onMouseLeave={(e) => e.target.style.backgroundColor = "transparent"}
+            >
+              Clear Queue
+            </button>
+          )}
+          <button onClick={onClose} className="close-btn" style={{ padding: "4px", display: "flex", alignItems: "center" }}>
+            <X size={18} />
+          </button>
+        </div>
+      </div>
+
+      <div className="queue-search-container" style={{ padding: "0 0 12px 0", position: "relative" }}>
+        <div className="queue-search-input-wrapper" style={{ position: "relative", display: "flex", alignItems: "center" }}>
+          <Search size={16} className="search-icon" style={{ position: "absolute", left: "12px", color: "#a0a0a0" }} />
+          <input
+            type="text"
+            className="queue-search-input"
+            placeholder="Search & add to queue..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              style={{
+                position: "absolute",
+                right: "12px",
+                background: "none",
+                border: "none",
+                color: "#a0a0a0",
+                cursor: "pointer",
+                padding: "2px",
+                display: "flex",
+                alignItems: "center"
+              }}
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Search Results Dropdown Panel */}
+        {searchQuery.trim() && (
+          <div className="queue-search-results">
+            {searchResults.songs.length === 0 && searchResults.albums.length === 0 && searchResults.playlists.length === 0 ? (
+              <div className="no-results" style={{ padding: "12px", textAlign: "center", color: "#a0a0a0", fontSize: "12px" }}>
+                No results found.
+              </div>
+            ) : (
+              <>
+                {searchResults.songs.length > 0 && (
+                  <div className="search-section">
+                    <div className="search-section-title">Songs</div>
+                    {searchResults.songs.map((song) => (
+                      <div
+                        key={song.id}
+                        className="search-result-item"
+                        onClick={() => {
+                          handleAddSongToQueue(song);
+                          setSearchQuery("");
+                        }}
+                      >
+                        <Music size={12} className="result-icon" />
+                        <div className="result-info">
+                          <span className="result-name">{song.title}</span>
+                          <span className="result-sub">{song.artist}</span>
+                        </div>
+                        <span className="add-badge">+ Add</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {searchResults.albums.length > 0 && (
+                  <div className="search-section">
+                    <div className="search-section-title">Albums</div>
+                    {searchResults.albums.map((album) => (
+                      <div
+                        key={album.id}
+                        className="search-result-item"
+                        onClick={() => {
+                          handleAddAlbumToQueue(album);
+                          setSearchQuery("");
+                        }}
+                      >
+                        <Disc size={12} className="result-icon" />
+                        <div className="result-info">
+                          <span className="result-name">{album.title}</span>
+                          <span className="result-sub">{album.artist}</span>
+                        </div>
+                        <span className="add-badge">+ Add Album</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {searchResults.playlists.length > 0 && (
+                  <div className="search-section">
+                    <div className="search-section-title">Playlists</div>
+                    {searchResults.playlists.map((plName, idx) => (
+                      <div
+                        key={idx}
+                        className="search-result-item"
+                        onClick={() => {
+                          handleAddPlaylistToQueue(plName);
+                          setSearchQuery("");
+                        }}
+                      >
+                        <ListMusic size={12} className="result-icon" />
+                        <div className="result-info">
+                          <span className="result-name">{plName}</span>
+                          <span className="result-sub">Playlist</span>
+                        </div>
+                        <span className="add-badge">+ Add Playlist</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="queue-list" style={{ overflow: "visible" }}>
+        {queue.length === 0 ? (
+          <div style={{ color: "#a0a0a0", fontSize: "14px", textAlign: "center", padding: "32px 16px" }}>
+            Queue is empty.
+          </div>
+        ) : (
+          queue.map((track, idx) => (
+            <div 
+              key={track.id} 
+              className={`queue-item ${draggedIndex === idx ? "dragging" : ""}`} 
+              style={{ display: "flex", alignItems: "center", position: "relative", overflow: "visible" }}
+              draggable
+              onDragStart={(e) => handleDragStart(e, idx)}
+              onDragOver={(e) => handleDragOver(e, idx)}
+              onDragEnd={handleDragEnd}
+            >
+              <GripVertical size={16} className="drag-handle" />
+              
+              <div 
+                className="queue-track-info" 
+                style={{ flex: 1, minWidth: 0, cursor: "pointer" }}
+                onClick={() => {
+                  playTrack(track);
+                  showToast(`Playing "${track.title}"`);
+                }}
+              >
+                <span className="q-title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {track.title}
+                </span>
+                <span className="q-artist" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {track.artist}
+                </span>
+              </div>
+
+              {/* Options menu */}
+              <div className="menu-wrapper" ref={activeMenuId === track.id ? activeMenuRef : null} style={{ display: "flex", alignItems: "center" }}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveMenuId(activeMenuId === track.id ? null : track.id);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#a0a0a0",
+                    cursor: "pointer",
+                    padding: "4px",
+                    borderRadius: "4px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}
+                  title="Options"
+                >
+                  <MoreVertical size={16} />
+                </button>
+                {activeMenuId === track.id && (
+                  <div 
+                    className="context-menu" 
+                    style={{ right: 0, top: "100%", bottom: "auto", marginTop: "6px", width: "150px" }} 
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button className="context-menu-item" onClick={() => handleRenameClick(track)}>
+                      <Edit3 size={12} />
+                      Rename
+                    </button>
+                    <button className="context-menu-item" onClick={() => handleRemoveTrack(track.id)}>
+                      <Trash2 size={12} />
+                      Remove
+                    </button>
+                    <button className="context-menu-item" onClick={() => handleViewLocation(track)}>
+                      <Clipboard size={12} />
+                      View Location
+                    </button>
+                    <div className="context-menu-item">
+                      <FolderPlus size={12} />
+                      Add to Playlist
+                      <div className="context-submenu" style={{ bottom: 0, top: "auto", width: "130px" }}>
+                        <button
+                          className="context-menu-item"
+                          style={{ fontWeight: "bold", borderBottom: "1px solid #333", color: "#6c5ce7", fontSize: "11px" }}
+                          onClick={() => handleCreatePlaylist(track)}
+                        >
+                          + Create Playlist
+                        </button>
+                        {playlists.map((pl, pIdx) => (
+                          <button
+                            key={pIdx}
+                            className="context-menu-item"
+                            style={{ fontSize: "11px" }}
+                            onClick={() => handleAddToPlaylist(track, pl)}
+                          >
+                            {pl}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* RENAME POPUP MODAL DIALOG */}
+      {isRenameModalOpen && (
+        <div className="modal-backdrop" onClick={() => setIsRenameModalOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Rename Details</h3>
+              <button className="close-btn" onClick={() => setIsRenameModalOpen(false)} style={{ background: "none", border: "none", color: "#a0a0a0", cursor: "pointer" }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="modal-field">
+                <label className="modal-label">Song Name</label>
+                <input
+                  type="text"
+                  className="modal-input"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="modal-field">
+                <label className="modal-label">Artist Name</label>
+                <input
+                  type="text"
+                  className="modal-input"
+                  value={editArtist}
+                  onChange={(e) => setEditArtist(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="modal-btn cancel" onClick={() => setIsRenameModalOpen(false)}>Cancel</button>
+              <button className="modal-btn save" onClick={handleSaveRename}>Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </aside>
+  );
+}

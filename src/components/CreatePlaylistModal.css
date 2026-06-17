@@ -1,0 +1,358 @@
+/* Create Playlist Modal Backdrop */
+.playlist-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 18000;
+  animation: playlistFadeIn 0.2s ease-out;
+}
+
+/* Modal Content Box */
+.playlist-modal-content {
+  background: linear-gradient(135deg, #1c1c1e 0%, #121214 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  width: 480px;
+  max-width: 90%;
+  max-height: 85vh;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: playlistScaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Header */
+.playlist-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.playlist-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+}
+
+.playlist-modal-close {
+  background: none;
+  border: none;
+  color: #a0a0a0;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.playlist-modal-close:hover {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Body */
+.playlist-modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Field Layout */
+.playlist-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.playlist-modal-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #a0a0a0;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+/* Text Input */
+.playlist-modal-input {
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: white;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.playlist-modal-input:focus {
+  border-color: #6c5ce7;
+  background-color: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.25);
+}
+
+/* Select All Button */
+.playlist-modal-select-all-btn {
+  background: none;
+  border: none;
+  color: #6c5ce7;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.playlist-modal-select-all-btn:hover {
+  color: #8f82ff;
+  background-color: rgba(108, 92, 231, 0.08);
+}
+
+/* Search Container */
+.playlist-search-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 2px 12px;
+  margin-bottom: 8px;
+}
+
+.playlist-search-icon {
+  color: #a0a0a0;
+  flex-shrink: 0;
+}
+
+.playlist-search-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: white;
+  padding: 8px 6px;
+  font-size: 13px;
+  width: 100%;
+  font-family: inherit;
+}
+
+.playlist-search-clear {
+  background: none;
+  border: none;
+  color: #a0a0a0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 50%;
+}
+
+.playlist-search-clear:hover {
+  color: white;
+  background-color: rgba(255,255,255,0.08);
+}
+
+/* Song Checklist List Container */
+.song-checklist-list {
+  flex: 1;
+  min-height: 120px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.15);
+  padding: 6px;
+}
+
+/* Scrollbar Customization */
+.song-checklist-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.song-checklist-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.song-checklist-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.song-checklist-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* List Item */
+.song-checklist-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s;
+  margin-bottom: 2px;
+}
+
+.song-checklist-item:last-child {
+  margin-bottom: 0;
+}
+
+.song-checklist-item:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.song-checklist-item.selected {
+  background-color: rgba(108, 92, 231, 0.06);
+}
+
+.song-checklist-item.selected:hover {
+  background-color: rgba(108, 92, 231, 0.1);
+}
+
+/* Checklist Item Detail Layout */
+.song-checklist-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.song-checklist-img {
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.song-checklist-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.song-checklist-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.song-checklist-artist {
+  font-size: 11px;
+  color: #a0a0a0;
+  margin-top: 1px;
+}
+
+/* Checkbox Ring/Circle */
+.song-checklist-checkbox {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  background-color: transparent;
+  flex-shrink: 0;
+}
+
+.song-checklist-item:hover .song-checklist-checkbox {
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.song-checklist-checkbox.checked {
+  border-color: #6c5ce7;
+  background-color: #6c5ce7;
+  box-shadow: 0 0 10px rgba(108, 92, 231, 0.3);
+}
+
+/* Empty State */
+.no-songs-found-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 160px;
+  color: #a0a0a0;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* Footer Section */
+.playlist-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Buttons */
+.playlist-modal-btn {
+  padding: 10px 20px;
+  font-size: 13.5px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  font-family: inherit;
+}
+
+.playlist-modal-btn.cancel {
+  background-color: transparent;
+  color: #a0a0a0;
+}
+
+.playlist-modal-btn.cancel:hover {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.playlist-modal-btn.save {
+  background-color: #6c5ce7;
+  color: white;
+}
+
+.playlist-modal-btn.save:hover:not(:disabled) {
+  background-color: #5b4cc4;
+  transform: translateY(-1px);
+}
+
+.playlist-modal-btn.save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Keyframe Animations */
+@keyframes playlistFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes playlistScaleUp {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}

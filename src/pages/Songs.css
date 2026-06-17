@@ -1,0 +1,426 @@
+.songs-page-container {
+  color: white;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.songs-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+  text-align: left;
+}
+
+.songs-table th {
+  color: #a0a0a0;
+  font-weight: 500;
+  font-size: 14px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.songs-table td {
+  padding: 12px 16px;
+  vertical-align: middle;
+  border-bottom: 1px solid transparent;
+}
+
+.song-row {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-radius: 6px;
+}
+
+.song-row:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.song-index {
+  color: #a0a0a0;
+  width: 40px;
+  text-align: center;
+}
+
+.song-info-col {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.song-thumbnail {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.song-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.song-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.song-artist {
+  color: #a0a0a0;
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.song-album-col {
+  color: #a0a0a0;
+  font-size: 14px;
+}
+
+.song-duration-col {
+  color: #a0a0a0;
+  font-size: 14px;
+  width: 80px;
+}
+
+.song-actions-col {
+  width: 60px;
+  text-align: right;
+}
+
+.row-action-btn {
+  background: none;
+  border: none;
+  color: #a0a0a0;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  opacity: 0;
+}
+
+.song-row:hover .row-action-btn {
+  opacity: 1;
+}
+
+.row-action-btn:hover {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* --- Three-Dots Context Menu UI --- */
+.menu-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.context-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 6px;
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+  z-index: 500;
+  width: 160px;
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  cursor: default;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #d0d0d0;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.context-menu-item:hover {
+  background-color: #2a2a2a;
+  color: white;
+}
+
+.context-menu-item svg {
+  flex-shrink: 0;
+}
+
+.context-submenu {
+  position: absolute;
+  right: 100%;
+  top: 0;
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+  display: none;
+  flex-direction: column;
+  width: 150px;
+  padding: 4px 0;
+}
+
+.context-menu-item:hover .context-submenu {
+  display: flex;
+}
+
+/* Inline Edit Controls */
+.inline-rename-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inline-rename-input {
+  background-color: #1a1a1a;
+  border: 1px solid #6c5ce7;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 14px;
+  color: white;
+  outline: none;
+  width: 150px;
+}
+
+.inline-edit-btn {
+  background: none;
+  border: none;
+  color: #a0a0a0;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.inline-edit-btn.save:hover {
+  color: #2ecc71;
+  background-color: rgba(46, 204, 113, 0.1);
+}
+
+.inline-edit-btn.cancel:hover {
+  color: #ff7675;
+  background-color: rgba(255, 118, 117, 0.1);
+}
+
+.toast-banner {
+  position: fixed;
+  bottom: 84px;
+  right: 24px;
+  background-color: #6c5ce7;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 10000;
+  animation: slideUp 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* --- Songs List Sorting UI --- */
+.songs-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.sort-dropdown-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #a0a0a0;
+}
+
+.sort-select {
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 20px;
+  padding: 6px 14px;
+  color: white;
+  outline: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sort-select:hover {
+  border-color: #6c5ce7;
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s;
+}
+
+.sortable-header:hover {
+  color: white;
+}
+
+.sort-icon {
+  margin-left: 6px;
+  color: #6c5ce7;
+  font-size: 11px;
+}
+
+/* ========================================
+   RENAME MODAL STYLING
+   ======================================== */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 15000; /* Ensure it is on top of everything, including top bar & queue */
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.modal-content {
+  background: linear-gradient(135deg, #1c1c1e 0%, #121214 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  width: 420px;
+  max-width: 90%;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalScaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+}
+
+.modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #a0a0a0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.modal-input {
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: white;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.modal-input:focus {
+  border-color: #6c5ce7;
+  background-color: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.2);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.modal-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.modal-btn.cancel {
+  background-color: transparent;
+  color: #a0a0a0;
+}
+
+.modal-btn.cancel:hover {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.modal-btn.save {
+  background-color: #6c5ce7;
+  color: white;
+}
+
+.modal-btn.save:hover {
+  background-color: #5b4cc4;
+  transform: translateY(-1px);
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalScaleUp {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+
