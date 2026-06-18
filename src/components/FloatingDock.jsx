@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Music,
   Shuffle,
@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import "./FloatingDock.css";
 import { getCurrentTrack, toggleLikeSong, playTrack } from "../utils/musicShared";
+import { getAssetUrl, isTauri } from "../utils/tauribridge";
+import { readDataSync } from "../utils/tauribridge";
 import RightQueue from "./RightQueue";
 
 // Accept toggleQueue and isQueueOpen as props from Layout
@@ -30,15 +32,13 @@ export default function FloatingDock({ toggleQueue, isQueueOpen }) {
   const [currentTrack, setCurrentTrack] = useState(() => getCurrentTrack());
   const [isFullScreen, setIsFullScreen] = useState(false);
 
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") {
-        setIsFullScreen(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  // Real audio playback state
+  const audioRef = useRef(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [audioError, setAudioError] = useState(null);
+
 
   const toggleShuffle = () => setIsShuffle(!isShuffle);
   const toggleRepeat = () => {
@@ -71,10 +71,18 @@ export default function FloatingDock({ toggleQueue, isQueueOpen }) {
 
   useEffect(() => {
     const handleTrackChange = (e) => {
-      setCurrentTrack(e.detail);
-      if (e.detail) {
-        setIsPlaying(true);
-      }
+      const newTrack = e.detail;
+      setCurrentTrack(prev => {
+        if (prev && newTrack && prev.path === newTrack.path) {
+          // Metadata update only (e.g. liked/unliked) - preserve current playing state
+          return newTrack;
+        }
+        if (newTrack) {
+          setIsPlaying(true);
+          setAudioError(null);
+        }
+        return newTrack;
+      });
     };
     const handleLikesChange = (e) => {
       setCurrentTrack(prev => {
@@ -92,50 +100,106 @@ export default function FloatingDock({ toggleQueue, isQueueOpen }) {
     };
   }, []);
 
-  const togglePlay = () => setIsPlaying(!isPlaying);
-  const toggleMute = () => setIsMuted(!isMuted);
+  // ── Real Audio Playback ──────────────────────────────────────────────────
 
-  const handleLikeClick = (e) => {
-    e.stopPropagation();
-    if (currentTrack) {
-      toggleLikeSong(currentTrack);
+  // Load and play audio when the current track changes
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !currentTrack) return;
+
+    const path = currentTrack.path;
+    if (path) {
+      const url = getAssetUrl(path);
+      // Only reload if the source actually changed
+      if (audio.src !== url) {
+        audio.src = url;
+        audio.load();
+      }
+      audio.play().catch(err => {
+        console.warn("Audio play failed:", err);
+        setAudioError("Could not play file");
+      });
     }
-  };
+  }, [currentTrack?.path]);
 
-  const handleSkipNext = () => {
-    const saved = localStorage.getItem("music_songs");
+  // Sync play/pause state with audio element
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !audio.src) return;
+
+    if (isPlaying) {
+      audio.play().catch(() => {});
+    } else {
+      audio.pause();
+    }
+  }, [isPlaying]);
+
+  // Sync volume and mute
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.volume = volume;
+    audio.muted = isMuted;
+  }, [volume, isMuted]);
+
+  const getAllSongs = useCallback(() => {
+    const saved = readDataSync("music_songs");
     let allSongs = [];
     if (saved) {
       try { allSongs = JSON.parse(saved); } catch(e) {}
     }
-    if (allSongs.length === 0) {
-      allSongs = [
-        { id: 1, title: "After Hours", artist: "The Weeknd", path: "C:/Users/NIJANTH/Music/After Hours.mp3", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150" },
-        { id: 2, title: "Blinding Lights", artist: "The Weeknd", path: "C:/Users/NIJANTH/Music/Blinding Lights.mp3", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150" },
-        { id: 3, title: "Midnight City", artist: "M83", path: "C:/Users/NIJANTH/Downloads/Midnight City.wav", image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150&h=150" }
-      ];
+    return allSongs;
+  }, []);
+
+  const handleSkipNext = useCallback((autoTrigger = false) => {
+    const allSongs = getAllSongs();
+    if (allSongs.length === 0) return;
+
+    if (isShuffle) {
+      const randomIdx = Math.floor(Math.random() * allSongs.length);
+      playTrack(allSongs[randomIdx]);
+      return;
     }
+
     if (currentTrack) {
       const idx = allSongs.findIndex(s => s.title.toLowerCase() === currentTrack.title.toLowerCase());
-      const nextIdx = (idx + 1) % allSongs.length;
-      playTrack(allSongs[nextIdx]);
-    } else if (allSongs.length > 0) {
+      if (idx === -1) {
+        playTrack(allSongs[0]);
+        return;
+      }
+
+      if (idx === allSongs.length - 1) {
+        // Last song in the list
+        if (autoTrigger && repeatMode === "off") {
+          // If automatically triggered and repeat is off, stop playing at the end of the queue
+          const audio = audioRef.current;
+          if (audio) audio.currentTime = 0;
+          setIsPlaying(false);
+        } else {
+          // Wrap around if manually skipped or repeat is infinite
+          playTrack(allSongs[0]);
+        }
+      } else {
+        playTrack(allSongs[idx + 1]);
+      }
+    } else {
       playTrack(allSongs[0]);
     }
-  };
+  }, [currentTrack, isShuffle, repeatMode, getAllSongs]);
 
-  const handleSkipPrev = () => {
-    const saved = localStorage.getItem("music_songs");
-    let allSongs = [];
-    if (saved) {
-      try { allSongs = JSON.parse(saved); } catch(e) {}
+  const handleSkipPrev = useCallback(() => {
+    // If we're more than 3 seconds in, restart the current track
+    const audio = audioRef.current;
+    if (audio && audio.currentTime > 3) {
+      audio.currentTime = 0;
+      return;
     }
-    if (allSongs.length === 0) {
-      allSongs = [
-        { id: 1, title: "After Hours", artist: "The Weeknd", path: "C:/Users/NIJANTH/Music/After Hours.mp3", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150" },
-        { id: 2, title: "Blinding Lights", artist: "The Weeknd", path: "C:/Users/NIJANTH/Music/Blinding Lights.mp3", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150" },
-        { id: 3, title: "Midnight City", artist: "M83", path: "C:/Users/NIJANTH/Downloads/Midnight City.wav", image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150&h=150" }
-      ];
+
+    const allSongs = getAllSongs();
+    if (isShuffle) {
+      const randomIdx = Math.floor(Math.random() * allSongs.length);
+      playTrack(allSongs[randomIdx]);
+      return;
     }
     if (currentTrack) {
       const idx = allSongs.findIndex(s => s.title.toLowerCase() === currentTrack.title.toLowerCase());
@@ -144,11 +208,158 @@ export default function FloatingDock({ toggleQueue, isQueueOpen }) {
     } else if (allSongs.length > 0) {
       playTrack(allSongs[allSongs.length - 1]);
     }
+  }, [currentTrack, isShuffle, getAllSongs]);
+
+  // Handle audio events
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const onDurationChange = () => setDuration(audio.duration || 0);
+    const onEnded = () => {
+      if (repeatMode === "once") {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      } else {
+        handleSkipNext(true); // Pass true to indicate automatic song end
+      }
+    };
+    const onError = () => {
+      if (audio.src && audio.src !== window.location.href) {
+        setAudioError("File not found or unsupported format");
+      }
+    };
+
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("durationchange", onDurationChange);
+    audio.addEventListener("ended", onEnded);
+    audio.addEventListener("error", onError);
+
+    return () => {
+      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("durationchange", onDurationChange);
+      audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("error", onError);
+    };
+  }, [repeatMode, handleSkipNext]);
+
+  const togglePlay = () => {
+    setIsPlaying(prev => !prev);
   };
+
+  const toggleMute = () => setIsMuted(prev => !prev);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ignore keypresses if the user is typing in inputs or contenteditable fields
+      const activeEl = document.activeElement;
+      if (
+        activeEl && (
+          activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.isContentEditable
+        )
+      ) {
+        return;
+      }
+
+      const audio = audioRef.current;
+
+      switch (e.key.toLowerCase()) {
+        case "escape":
+          setIsFullScreen(false);
+          break;
+        case " ": // Spacebar
+          e.preventDefault(); // Prevent default page scrolling
+          togglePlay();
+          break;
+        case "arrowleft":
+          if (audio) {
+            e.preventDefault();
+            audio.currentTime = Math.max(0, audio.currentTime - 5);
+          }
+          break;
+        case "arrowright":
+          if (audio) {
+            e.preventDefault();
+            audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 5);
+          }
+          break;
+        case "arrowup":
+          e.preventDefault();
+          setVolume(prev => {
+            const nextVolume = Math.max(0, Math.min(1, prev + 0.05));
+            if (nextVolume > 0) setIsMuted(false);
+            return nextVolume;
+          });
+          break;
+        case "arrowdown":
+          e.preventDefault();
+          setVolume(prev => Math.max(0, Math.min(1, prev - 0.05)));
+          break;
+        case "m":
+          setIsMuted(prev => !prev);
+          break;
+        case "n":
+          handleSkipNext();
+          break;
+        case "p":
+          handleSkipPrev();
+          break;
+        case "l":
+          if (currentTrack) {
+            toggleLikeSong(currentTrack);
+          }
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentTrack, handleSkipNext, handleSkipPrev, togglePlay, setIsFullScreen]);
+
+  const handleLikeClick = (e) => {
+    e.stopPropagation();
+    if (currentTrack) {
+      toggleLikeSong(currentTrack);
+    }
+  };
+
+  const handleSeek = (e) => {
+    const audio = audioRef.current;
+    if (!audio || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const pct = x / rect.width;
+    audio.currentTime = pct * duration;
+  };
+
+  const handleVolumeChange = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const pct = Math.max(0, Math.min(1, x / rect.width));
+    setVolume(pct);
+    if (pct > 0 && isMuted) setIsMuted(false);
+  };
+
+  // Format seconds to M:SS
+  const formatTime = (secs) => {
+    if (!secs || isNaN(secs)) return "0:00";
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
     <>
-      <div className={`dock-container ${isVisible ? "is-visible" : "is-hidden"}`}>
+      {/* Hidden audio element for real playback */}
+      <audio ref={audioRef} preload="auto" />
+
+      <div className={`dock-container ${isVisible ? "is-visible" : "is-hidden"}`} style={{ display: "flex", flexDirection: "column", alignItems: "stretch" }}>
         <div className="content">
           {/* 1. Track Info */}
           <div style={{ display: "flex", alignItems: "center" }}>
@@ -256,14 +467,29 @@ export default function FloatingDock({ toggleQueue, isQueueOpen }) {
           <div className="dock-separator"></div>
 
           {/* 3. Volume & Queue Control */}
-          <button className="icon-wrapper" onClick={toggleMute}>
-            {isMuted ? (
-              <VolumeX className="icons" color="#a0a0a0" size={20} />
-            ) : (
-              <Volume2 className="icons" color="white" size={20} />
-            )}
-            <span className="tooltip">{isMuted ? "Unmute" : "Mute"}</span>
-          </button>
+          <div className="dock-volume-container">
+            <button className="icon-wrapper" onClick={toggleMute} style={{ padding: 0 }} title={isMuted ? "Unmute" : "Mute"}>
+              {isMuted || volume === 0 ? (
+                <VolumeX className="icons" color="#a0a0a0" size={20} />
+              ) : (
+                <Volume2 className="icons" color="white" size={20} />
+              )}
+            </button>
+            <div className="dock-volume-slider-wrapper">
+              <input 
+                type="range" 
+                min="0" 
+                max="1" 
+                step="0.01" 
+                value={isMuted ? 0 : volume} 
+                onChange={(e) => {
+                  setVolume(parseFloat(e.target.value));
+                  if (isMuted) setIsMuted(false);
+                }}
+                className="dock-volume-slider"
+              />
+            </div>
+          </div>
 
           {/* NEW QUEUE BUTTON */}
           <button className="icon-wrapper" onClick={toggleQueue}>
@@ -272,8 +498,16 @@ export default function FloatingDock({ toggleQueue, isQueueOpen }) {
           </button>
         </div>
 
-        <div className="mini-progress-container">
-          <div className="mini-progress-fill"></div>
+        <div className="dock-progress-row">
+          <span className="dock-time-label left">{formatTime(currentTime)}</span>
+          <div className="dock-progress-bar-wrapper" onClick={handleSeek}>
+            <div className="dock-progress-bg">
+              <div className="dock-progress-fill" style={{ width: `${progressPct}%` }}>
+                <div className="dock-progress-dot"></div>
+              </div>
+            </div>
+          </div>
+          <span className="dock-time-label right">{formatTime(duration)}</span>
         </div>
       </div>
 
@@ -385,14 +619,31 @@ export default function FloatingDock({ toggleQueue, isQueueOpen }) {
             
             {/* Progress bar */}
             <div className="fullscreen-progress-container">
-              <div className="fullscreen-progress-bar">
-                <div className="fullscreen-progress-fill"></div>
+              <div className="fullscreen-progress-bar-wrapper" onClick={handleSeek}>
+                <div className="fullscreen-progress-bar">
+                  <div className="fullscreen-progress-fill" style={{ width: `${progressPct}%` }}>
+                    <div className="fullscreen-progress-dot"></div>
+                  </div>
+                </div>
               </div>
               <div className="fullscreen-time-info">
-                <span>0:45</span>
-                <span>3:30</span>
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration)}</span>
               </div>
             </div>
+
+            {/* Audio error indicator */}
+            {audioError && (
+              <div style={{ 
+                color: "#ff6b6b", 
+                fontSize: "12px", 
+                textAlign: "center", 
+                marginTop: "8px",
+                opacity: 0.8 
+              }}>
+                {audioError}
+              </div>
+            )}
           </div>
           {isQueueOpen && (
             <div className="fullscreen-queue-sidebar">

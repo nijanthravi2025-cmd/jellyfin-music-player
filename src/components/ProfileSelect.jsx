@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Check, X, User, Image, Music } from "lucide-react";
 import "./ProfileSelect.css";
+import { readDataSync, writeDataSync, removeDataSync } from '../utils/tauribridge';
+import ImageCropperModal from "./ImageCropperModal";
 
 export default function ProfileSelect({ onSelectProfile }) {
   const [profiles, setProfiles] = useState([]);
@@ -13,10 +15,11 @@ export default function ProfileSelect({ onSelectProfile }) {
   // Fields
   const [profileName, setProfileName] = useState("");
   const [profileAvatar, setProfileAvatar] = useState("");
+  const [tempImageSrc, setTempImageSrc] = useState(null);
 
   // Load profiles from localStorage
   useEffect(() => {
-    const savedProfiles = localStorage.getItem("music_profiles");
+    const savedProfiles = readDataSync("music_profiles");
 
     if (savedProfiles) {
       try {
@@ -37,12 +40,12 @@ export default function ProfileSelect({ onSelectProfile }) {
         avatar: ""
       }
     ];
-    localStorage.setItem("music_profiles", JSON.stringify(initial));
+    writeDataSync("music_profiles", JSON.stringify(initial));
     setProfiles(initial);
   };
 
   const saveProfilesToStorage = (updatedList) => {
-    localStorage.setItem("music_profiles", JSON.stringify(updatedList));
+    writeDataSync("music_profiles", JSON.stringify(updatedList));
     setProfiles(updatedList);
   };
 
@@ -98,8 +101,8 @@ export default function ProfileSelect({ onSelectProfile }) {
       saveProfilesToStorage(newList);
 
       // Clean local storage keys associated with the profile
-      localStorage.removeItem("music_playlists_" + profileId);
-      localStorage.removeItem("music_directories_" + profileId);
+      removeDataSync("music_playlists_" + profileId);
+      removeDataSync("music_directories_" + profileId);
     }
   };
 
@@ -219,10 +222,12 @@ export default function ProfileSelect({ onSelectProfile }) {
                       if (file) {
                         const reader = new FileReader();
                         reader.onloadend = () => {
-                          setProfileAvatar(reader.result);
+                          setTempImageSrc(reader.result);
                         };
                         reader.readAsDataURL(file);
                       }
+                      // Reset value to allow uploading the same file again if canceled
+                      e.target.value = null;
                     }}
                   />
                   <label htmlFor="profile-custom-file-input" className="profile-custom-file-btn" style={{ margin: 0, display: "inline-flex", alignItems: "center" }}>
@@ -286,6 +291,17 @@ export default function ProfileSelect({ onSelectProfile }) {
             </div>
           </div>
         </div>
+      )}
+
+      {tempImageSrc && (
+        <ImageCropperModal
+          imageSrc={tempImageSrc}
+          onCropComplete={(croppedBase64) => {
+            setProfileAvatar(croppedBase64);
+            setTempImageSrc(null);
+          }}
+          onClose={() => setTempImageSrc(null)}
+        />
       )}
     </div>
   );

@@ -3,52 +3,38 @@ import { Play, MoreVertical, Edit3, Trash2, FolderPlus, Check, X, Clipboard, Lis
 import "./Home.css";
 import "./Songs.css"; // Reuse context menu styles
 import { addToQueue, playTrack } from "../utils/musicShared";
+import { readDataSync, writeDataSync } from '../utils/tauribridge';
 
-const defaultMockAlbums = [
-  {
-    id: 1,
-    title: "After Hours",
-    artist: "The Weeknd",
-    year: "2020",
-    image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=250&h=250",
-    path: "C:/Users/NIJANTH/Music/The Weeknd/After Hours"
-  },
-  {
-    id: 2,
-    title: "Random Access Memories",
-    artist: "Daft Punk",
-    year: "2013",
-    image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=250&h=250",
-    path: "D:/Media/Music/Daft Punk/Random Access Memories"
-  },
-  {
-    id: 3,
-    title: "Interstellar OST",
-    artist: "Hans Zimmer",
-    year: "2014",
-    image: "https://images.unsplash.com/photo-1460036521480-c4b50f6a6c11?auto=format&fit=crop&q=80&w=250&h=250",
-    path: "E:/Audio/Soundtracks/Interstellar OST"
-  },
-  {
-    id: 4,
-    title: "When We All Fall Asleep",
-    artist: "Billie Eilish",
-    year: "2019",
-    image: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&q=80&w=250&h=250",
-    path: "C:/Users/NIJANTH/Music/Billie Eilish/When We All Fall Asleep"
-  },
-];
+const defaultMockAlbums = [];
 
 export default function Albums() {
   const [albums, setAlbums] = useState(() => {
-    const saved = localStorage.getItem("music_albums");
+    const saved = readDataSync("music_albums");
     if (saved) {
       try {
         return JSON.parse(saved);
       } catch (e) {}
     }
-    return defaultMockAlbums;
+    return [];
   });
+
+  // Listen to library scan updates
+  useEffect(() => {
+    const handleAlbumsChange = () => {
+      const saved = readDataSync("music_albums");
+      if (saved) {
+        try {
+          setAlbums(JSON.parse(saved));
+        } catch (e) {
+          setAlbums([]);
+        }
+      } else {
+        setAlbums([]);
+      }
+    };
+    window.addEventListener("albumsChanged", handleAlbumsChange);
+    return () => window.removeEventListener("albumsChanged", handleAlbumsChange);
+  }, []);
   const [playlists, setPlaylists] = useState([]);
   const [activeMenuId, setActiveMenuId] = useState(null);
   
@@ -69,16 +55,16 @@ export default function Albums() {
   // Load playlists from localStorage
   useEffect(() => {
     const loadPlaylistsList = () => {
-      const saved = localStorage.getItem("music_playlists");
+      const saved = readDataSync("music_playlists");
       if (saved) {
         try {
           setPlaylists(JSON.parse(saved));
         } catch (e) {
-          setPlaylists(["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights"]);
+          setPlaylists([]);
         }
       } else {
-        const defaultPL = ["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights"];
-        localStorage.setItem("music_playlists", JSON.stringify(defaultPL));
+        const defaultPL = [];
+        writeDataSync("music_playlists", JSON.stringify(defaultPL));
         setPlaylists(defaultPL);
       }
     };
@@ -133,10 +119,10 @@ export default function Albums() {
     } : album);
 
     setAlbums(updatedAlbums);
-    localStorage.setItem("music_albums", JSON.stringify(updatedAlbums));
+    writeDataSync("music_albums", JSON.stringify(updatedAlbums));
 
     // Update current playing track metadata if it happens to be in this album
-    const savedCurrent = localStorage.getItem("music_current_track");
+    const savedCurrent = readDataSync("music_current_track");
     if (savedCurrent) {
       try {
         const currentTrack = JSON.parse(savedCurrent);
@@ -146,7 +132,7 @@ export default function Albums() {
             album: trimmedTitle,
             artist: trimmedArtist
           };
-          localStorage.setItem("music_current_track", JSON.stringify(updatedTrack));
+          writeDataSync("music_current_track", JSON.stringify(updatedTrack));
           window.dispatchEvent(new CustomEvent("currentTrackChanged", { detail: updatedTrack }));
         }
       } catch (e) {}
@@ -175,20 +161,62 @@ export default function Albums() {
 
     const updatedAlbums = albums.map(album => album.id === coverItem.id ? { 
       ...album, 
-      image: newImage
+      image: newImage,
+      isCustomImage: true
     } : album);
 
     setAlbums(updatedAlbums);
-    localStorage.setItem("music_albums", JSON.stringify(updatedAlbums));
+    writeDataSync("music_albums", JSON.stringify(updatedAlbums));
+
+    // Update all songs in music_songs belonging to this album
+    let allSongs = [];
+    const savedSongs = readDataSync("music_songs");
+    if (savedSongs) {
+      try {
+        allSongs = JSON.parse(savedSongs);
+        const updatedSongs = allSongs.map(song => {
+          if (song.album && song.album.toLowerCase() === coverItem.title.toLowerCase()) {
+            return {
+              ...song,
+              image: newImage,
+              isCustomImage: true
+            };
+          }
+          return song;
+        });
+        writeDataSync("music_songs", JSON.stringify(updatedSongs));
+        window.dispatchEvent(new CustomEvent("songsChanged"));
+      } catch (e) {}
+    }
+
+    // Update liked songs belonging to this album
+    const savedLiked = readDataSync("music_liked_songs");
+    if (savedLiked) {
+      try {
+        const likedList = JSON.parse(savedLiked);
+        const updatedLiked = likedList.map(song => {
+          if (song.album && song.album.toLowerCase() === coverItem.title.toLowerCase()) {
+            return {
+              ...song,
+              image: newImage,
+              isCustomImage: true
+            };
+          }
+          return song;
+        });
+        writeDataSync("music_liked_songs", JSON.stringify(updatedLiked));
+        window.dispatchEvent(new CustomEvent("likedSongsChanged", { detail: updatedLiked }));
+      } catch (e) {}
+    }
 
     // Also update current playing track metadata if it belongs to this album
-    const savedCurrent = localStorage.getItem("music_current_track");
+    const savedCurrent = readDataSync("music_current_track");
     if (savedCurrent) {
       try {
         const currentTrack = JSON.parse(savedCurrent);
         if (currentTrack.album && currentTrack.album.toLowerCase() === coverItem.title.toLowerCase()) {
-          const updatedTrack = { ...currentTrack, image: newImage };
-          localStorage.setItem("music_current_track", JSON.stringify(updatedTrack));
+          const updatedTrack = { ...currentTrack, image: newImage, isCustomImage: true };
+          writeDataSync("music_current_track", JSON.stringify(updatedTrack));
           window.dispatchEvent(new CustomEvent("currentTrackChanged", { detail: updatedTrack }));
         }
       } catch (e) {}
@@ -202,7 +230,7 @@ export default function Albums() {
   const handleDeleteAlbum = (id) => {
     const updatedAlbums = albums.filter(album => album.id !== id);
     setAlbums(updatedAlbums);
-    localStorage.setItem("music_albums", JSON.stringify(updatedAlbums));
+    writeDataSync("music_albums", JSON.stringify(updatedAlbums));
     setActiveMenuId(null);
     showToast("Album deleted.");
   };
@@ -210,7 +238,7 @@ export default function Albums() {
   const handleAddToPlaylist = (album, playlistName) => {
     setActiveMenuId(null);
     let allSongs = [];
-    const savedSongs = localStorage.getItem("music_songs");
+    const savedSongs = readDataSync("music_songs");
     if (savedSongs) {
       try { allSongs = JSON.parse(savedSongs); } catch (e) {}
     }
@@ -221,7 +249,7 @@ export default function Albums() {
       return;
     }
 
-    const saved = localStorage.getItem(`music_playlist_songs_${playlistName}`);
+    const saved = readDataSync(`music_playlist_songs_${playlistName}`);
     let playlistSongs = [];
     if (saved) {
       try { playlistSongs = JSON.parse(saved); } catch (e) {}
@@ -241,7 +269,7 @@ export default function Albums() {
       return;
     }
 
-    localStorage.setItem(`music_playlist_songs_${playlistName}`, JSON.stringify(nextSongs));
+    writeDataSync(`music_playlist_songs_${playlistName}`, JSON.stringify(nextSongs));
     window.dispatchEvent(new CustomEvent("playlistsChanged"));
     showToast(`Added ${addedCount} tracks from "${album.title}" to "${playlistName}"`);
   };

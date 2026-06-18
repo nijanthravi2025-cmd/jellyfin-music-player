@@ -3,6 +3,7 @@ import { Play, ListMusic, MoreVertical, Edit3, Trash2, Clipboard, Check, X, Plus
 import "./Home.css"; // Reuse card-grid, album-card styles
 import "./Songs.css"; // Reuse toast-banner, context menus, and modal styles
 import { playTrack, toggleLikeSong, isSongLiked } from "../utils/musicShared";
+import { readDataSync, writeDataSync, removeDataSync } from '../utils/tauribridge';
 
 const defaultImages = [
   "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?auto=format&fit=crop&q=80&w=250&h=250",
@@ -11,53 +12,7 @@ const defaultImages = [
   "https://images.unsplash.com/photo-1493225457124-a1a2a5f5f9af?auto=format&fit=crop&q=80&w=250&h=250",
 ];
 
-const mockSongs = [
-  {
-    id: 1,
-    title: "After Hours",
-    artist: "The Weeknd",
-    album: "After Hours",
-    duration: "6:01",
-    image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150",
-    path: "C:/Users/NIJANTH/Music/After Hours.mp3"
-  },
-  {
-    id: 2,
-    title: "Blinding Lights",
-    artist: "The Weeknd",
-    album: "After Hours",
-    duration: "3:20",
-    image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150",
-    path: "C:/Users/NIJANTH/Music/Blinding Lights.mp3"
-  },
-  {
-    id: 3,
-    title: "Midnight City",
-    artist: "M83",
-    album: "Hurry Up, We're Dreaming",
-    duration: "4:03",
-    image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150&h=150",
-    path: "C:/Users/NIJANTH/Downloads/Midnight City.wav"
-  },
-  {
-    id: 4,
-    title: "Strobe",
-    artist: "deadmau5",
-    album: "For Lack of a Better Name",
-    duration: "10:37",
-    image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=150&h=150",
-    path: "D:/Media/Audio/Electronic/Strobe.flac"
-  },
-  {
-    id: 5,
-    title: "Intro",
-    artist: "The xx",
-    album: "xx",
-    duration: "2:08",
-    image: "https://images.unsplash.com/photo-1460036521480-c4b50f6a6c11?auto=format&fit=crop&q=80&w=150&h=150",
-    path: "D:/Media/Tracks/The xx - Intro.mp3"
-  },
-];
+const mockSongs = [];
 
 export default function Playlists() {
   const [playlistNames, setPlaylistNames] = useState([]);
@@ -80,51 +35,33 @@ export default function Playlists() {
 
   // Load playlists from localStorage
   const loadPlaylists = () => {
-    const saved = localStorage.getItem("music_playlists");
+    const saved = readDataSync("music_playlists");
     let names = [];
     if (saved) {
       try {
         names = JSON.parse(saved);
       } catch (e) {
-        names = ["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights", "Heavy Rock Anthems"];
+        names = [];
       }
     } else {
-      names = ["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights", "Heavy Rock Anthems"];
-      localStorage.setItem("music_playlists", JSON.stringify(names));
+      names = [];
+      writeDataSync("music_playlists", JSON.stringify(names));
     }
     setPlaylistNames(names);
 
     // Map string names to full playlist items with mock or real metadata
     const mapped = names.map((name, idx) => {
       const songsKey = `music_playlist_songs_${name}`;
-      let savedSongs = localStorage.getItem(songsKey);
+      let savedSongs = readDataSync(songsKey);
 
       // Pre-populate default playlists if they do not exist
       if (!savedSongs) {
         let defaultSongsList = [];
-        const allSongsSaved = localStorage.getItem("music_songs");
-        let librarySongs = mockSongs;
-        if (allSongsSaved) {
-          try {
-            librarySongs = JSON.parse(allSongsSaved);
-          } catch (e) {}
-        }
-
-        if (name === "Chill Acoustic Vibes") {
-          defaultSongsList = librarySongs.filter(s => s.title === "Midnight City" || s.title === "Intro");
-        } else if (name === "Deep Focus Beats") {
-          defaultSongsList = librarySongs.filter(s => s.title === "Strobe" || s.title === "Intro");
-        } else if (name === "Vaporwave Nights") {
-          defaultSongsList = librarySongs.filter(s => s.title === "Midnight City" || s.title === "After Hours");
-        } else if (name === "Heavy Rock Anthems") {
-          defaultSongsList = librarySongs.filter(s => s.title === "After Hours" || s.title === "Blinding Lights");
-        }
-
-        localStorage.setItem(songsKey, JSON.stringify(defaultSongsList));
+        writeDataSync(songsKey, JSON.stringify(defaultSongsList));
         savedSongs = JSON.stringify(defaultSongsList);
       }
 
-      const customCover = localStorage.getItem(`music_playlist_cover_${name}`);
+      const customCover = readDataSync(`music_playlist_cover_${name}`);
       let count = 0;
       if (savedSongs) {
         try {
@@ -173,12 +110,12 @@ export default function Playlists() {
 
   // Sync back to localStorage when playlistNames change
   const savePlaylists = (updatedNames) => {
-    localStorage.setItem("music_playlists", JSON.stringify(updatedNames));
+    writeDataSync("music_playlists", JSON.stringify(updatedNames));
     loadPlaylists();
   };
 
   const handlePlaylistClick = (playlist) => {
-    const savedSongs = localStorage.getItem(`music_playlist_songs_${playlist.title}`);
+    const savedSongs = readDataSync(`music_playlist_songs_${playlist.title}`);
     let songsList = [];
     if (savedSongs) {
       try {
@@ -193,7 +130,7 @@ export default function Playlists() {
     if (!selectedPlaylist) return;
     const updatedTracks = playlistTracks.filter(track => track.id !== songId);
     setPlaylistTracks(updatedTracks);
-    localStorage.setItem(`music_playlist_songs_${selectedPlaylist.title}`, JSON.stringify(updatedTracks));
+    writeDataSync(`music_playlist_songs_${selectedPlaylist.title}`, JSON.stringify(updatedTracks));
     
     // Dispatch playlistsChanged event to trigger count reloads in cards
     window.dispatchEvent(new CustomEvent("playlistsChanged"));
@@ -230,7 +167,7 @@ export default function Playlists() {
   const handleRenameClick = (pl) => {
     setRenameItem(pl);
     setEditTitle(pl.title);
-    const customCover = localStorage.getItem(`music_playlist_cover_${pl.title}`);
+    const customCover = readDataSync(`music_playlist_cover_${pl.title}`);
     setEditImage(customCover || "");
     setIsRenameModalOpen(true);
     setActiveMenuId(null);
@@ -251,28 +188,28 @@ export default function Playlists() {
       changes.push(`Playlist name changed to "${trimmedTitle}"`);
       
       // Migrate songs list key
-      const songs = localStorage.getItem(`music_playlist_songs_${oldName}`);
+      const songs = readDataSync(`music_playlist_songs_${oldName}`);
       if (songs) {
-        localStorage.setItem(`music_playlist_songs_${trimmedTitle}`, songs);
-        localStorage.removeItem(`music_playlist_songs_${oldName}`);
+        writeDataSync(`music_playlist_songs_${trimmedTitle}`, songs);
+        removeDataSync(`music_playlist_songs_${oldName}`);
       }
 
       // Migrate cover art key
-      const cover = localStorage.getItem(`music_playlist_cover_${oldName}`);
+      const cover = readDataSync(`music_playlist_cover_${oldName}`);
       if (cover) {
-        localStorage.setItem(`music_playlist_cover_${trimmedTitle}`, cover);
-        localStorage.removeItem(`music_playlist_cover_${oldName}`);
+        writeDataSync(`music_playlist_cover_${trimmedTitle}`, cover);
+        removeDataSync(`music_playlist_cover_${oldName}`);
       }
     }
 
     // Save cover modifications
-    const currentCover = localStorage.getItem(`music_playlist_cover_${trimmedTitle}`);
+    const currentCover = readDataSync(`music_playlist_cover_${trimmedTitle}`);
     if (editImage !== (currentCover || "")) {
       if (editImage) {
-        localStorage.setItem(`music_playlist_cover_${trimmedTitle}`, editImage);
+        writeDataSync(`music_playlist_cover_${trimmedTitle}`, editImage);
         changes.push("Playlist cover updated");
       } else {
-        localStorage.removeItem(`music_playlist_cover_${trimmedTitle}`);
+        removeDataSync(`music_playlist_cover_${trimmedTitle}`);
         changes.push("Playlist cover removed");
       }
     }
@@ -299,8 +236,8 @@ export default function Playlists() {
     savePlaylists(updatedNames);
     
     // Clean up associated storage keys
-    localStorage.removeItem(`music_playlist_songs_${pl.title}`);
-    localStorage.removeItem(`music_playlist_cover_${pl.title}`);
+    removeDataSync(`music_playlist_songs_${pl.title}`);
+    removeDataSync(`music_playlist_cover_${pl.title}`);
     
     setActiveMenuId(null);
     showToast("Playlist deleted.");
@@ -364,7 +301,7 @@ export default function Playlists() {
                   className="card-play-btn"
                   onClick={(e) => {
                     e.stopPropagation();
-                    const savedSongs = localStorage.getItem(`music_playlist_songs_${playlist.title}`);
+                    const savedSongs = readDataSync(`music_playlist_songs_${playlist.title}`);
                     if (savedSongs) {
                       try {
                         const tracks = JSON.parse(savedSongs);

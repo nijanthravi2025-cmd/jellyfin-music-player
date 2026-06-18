@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Play, Heart, Clock, MoreVertical, Edit3, Trash2, FolderPlus, Check, X, Clipboard, ListMusic, Image, Music } from "lucide-react";
 import "./Songs.css"; // Reuse table styling and menu styling
 import { getLikedSongs, toggleLikeSong, isSongLiked, addToQueue, playTrack, syncSongUpdateInPlaylists } from "../utils/musicShared";
+import { readDataSync, writeDataSync } from '../utils/tauribridge';
 
 export default function LikedSongs() {
   const [songs, setSongs] = useState(() => getLikedSongs());
@@ -26,16 +27,16 @@ export default function LikedSongs() {
   // Load playlists from localStorage
   useEffect(() => {
     const loadPlaylistsList = () => {
-      const saved = localStorage.getItem("music_playlists");
+      const saved = readDataSync("music_playlists");
       if (saved) {
         try {
           setPlaylists(JSON.parse(saved));
         } catch (e) {
-          setPlaylists(["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights", "Heavy Rock Anthems"]);
+          setPlaylists([]);
         }
       } else {
-        const defaultPL = ["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights", "Heavy Rock Anthems"];
-        localStorage.setItem("music_playlists", JSON.stringify(defaultPL));
+        const defaultPL = [];
+        writeDataSync("music_playlists", JSON.stringify(defaultPL));
         setPlaylists(defaultPL);
       }
     };
@@ -103,7 +104,7 @@ export default function LikedSongs() {
     } : song);
 
     setSongs(updatedSongs);
-    localStorage.setItem("music_liked_songs", JSON.stringify(updatedSongs));
+    writeDataSync("music_liked_songs", JSON.stringify(updatedSongs));
     window.dispatchEvent(new CustomEvent("likedSongsChanged", { detail: updatedSongs }));
 
     const updatedSong = updatedSongs.find(s => s.id === renameItem.id);
@@ -112,7 +113,7 @@ export default function LikedSongs() {
     }
 
     // Sync all songs list if renamed
-    const savedAll = localStorage.getItem("music_songs");
+    const savedAll = readDataSync("music_songs");
     if (savedAll) {
       try {
         const allList = JSON.parse(savedAll);
@@ -122,12 +123,12 @@ export default function LikedSongs() {
           artist: trimmedArtist,
           album: trimmedAlbum
         } : song);
-        localStorage.setItem("music_songs", JSON.stringify(updatedAll));
+        writeDataSync("music_songs", JSON.stringify(updatedAll));
       } catch (e) {}
     }
 
     // Sync current playing track metadata if renamed
-    const savedCurrent = localStorage.getItem("music_current_track");
+    const savedCurrent = readDataSync("music_current_track");
     if (savedCurrent) {
       try {
         const currentTrack = JSON.parse(savedCurrent);
@@ -138,7 +139,7 @@ export default function LikedSongs() {
             artist: trimmedArtist,
             album: trimmedAlbum
           };
-          localStorage.setItem("music_current_track", JSON.stringify(updatedTrack));
+          writeDataSync("music_current_track", JSON.stringify(updatedTrack));
           window.dispatchEvent(new CustomEvent("currentTrackChanged", { detail: updatedTrack }));
         }
       } catch (e) {}
@@ -171,7 +172,7 @@ export default function LikedSongs() {
     } : song);
 
     setSongs(updatedSongs);
-    localStorage.setItem("music_liked_songs", JSON.stringify(updatedSongs));
+    writeDataSync("music_liked_songs", JSON.stringify(updatedSongs));
     window.dispatchEvent(new CustomEvent("likedSongsChanged", { detail: updatedSongs }));
 
     const updatedSong = updatedSongs.find(s => s.id === coverItem.id);
@@ -180,7 +181,7 @@ export default function LikedSongs() {
     }
 
     // Sync all songs list if updated
-    const savedAll = localStorage.getItem("music_songs");
+    const savedAll = readDataSync("music_songs");
     if (savedAll) {
       try {
         const allList = JSON.parse(savedAll);
@@ -188,18 +189,18 @@ export default function LikedSongs() {
           ...song,
           image: newImage
         } : song);
-        localStorage.setItem("music_songs", JSON.stringify(updatedAll));
+        writeDataSync("music_songs", JSON.stringify(updatedAll));
       } catch (e) {}
     }
 
     // Sync current playing track metadata if updated
-    const savedCurrent = localStorage.getItem("music_current_track");
+    const savedCurrent = readDataSync("music_current_track");
     if (savedCurrent) {
       try {
         const currentTrack = JSON.parse(savedCurrent);
         if (currentTrack.title.toLowerCase() === coverItem.title.toLowerCase()) {
           const updatedTrack = { ...currentTrack, image: newImage };
-          localStorage.setItem("music_current_track", JSON.stringify(updatedTrack));
+          writeDataSync("music_current_track", JSON.stringify(updatedTrack));
           window.dispatchEvent(new CustomEvent("currentTrackChanged", { detail: updatedTrack }));
         }
       } catch (e) {}
@@ -221,7 +222,7 @@ export default function LikedSongs() {
 
   const handleAddToPlaylist = (song, playlistName) => {
     setActiveMenuId(null);
-    const saved = localStorage.getItem(`music_playlist_songs_${playlistName}`);
+    const saved = readDataSync(`music_playlist_songs_${playlistName}`);
     let playlistSongs = [];
     if (saved) {
       try {
@@ -235,7 +236,7 @@ export default function LikedSongs() {
     }
 
     const updated = [...playlistSongs, song];
-    localStorage.setItem(`music_playlist_songs_${playlistName}`, JSON.stringify(updated));
+    writeDataSync(`music_playlist_songs_${playlistName}`, JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent("playlistsChanged"));
     showToast(`Added "${song.title}" to "${playlistName}"`);
   };

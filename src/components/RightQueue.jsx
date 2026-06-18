@@ -3,37 +3,14 @@ import { X, GripVertical, MoreVertical, Edit3, Trash2, Clipboard, FolderPlus, Ch
 import "./Sidebars.css";
 import "../pages/Songs.css"; // Reuse context-menu and modal styles
 import { playTrack } from "../utils/musicShared";
+import { readDataSync, writeDataSync } from '../utils/tauribridge';
 
-const INITIAL_QUEUE = [
-  { id: 1, title: "After Hours", artist: "The Weeknd", path: "C:/Users/NIJANTH/Music/After Hours.mp3" },
-  { id: 2, title: "Blinding Lights", artist: "The Weeknd", path: "C:/Users/NIJANTH/Music/Blinding Lights.mp3" },
-  { id: 3, title: "Midnight City", artist: "M83", path: "C:/Users/NIJANTH/Downloads/Midnight City.wav" },
-];
-
-const INITIAL_SEARCH_SONGS = [
-  { id: 1, title: "After Hours", artist: "The Weeknd", album: "After Hours", duration: "6:01", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/After Hours.mp3" },
-  { id: 2, title: "Blinding Lights", artist: "The Weeknd", album: "After Hours", duration: "3:20", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Blinding Lights.mp3" },
-  { id: 3, title: "Midnight City", artist: "M83", album: "Hurry Up, We're Dreaming", duration: "4:03", image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Downloads/Midnight City.wav" },
-  { id: 4, title: "Strobe", artist: "deadmau5", album: "For Lack of a Better Name", duration: "10:37", image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=150&h=150", path: "D:/Media/Audio/Electronic/Strobe.flac" },
-  { id: 5, title: "Intro", artist: "The xx", album: "xx", duration: "2:08", image: "https://images.unsplash.com/photo-1460036521480-c4b50f6a6c11?auto=format&fit=crop&q=80&w=150&h=150", path: "D:/Media/Tracks/The xx - Intro.mp3" },
-  { id: 6, title: "Starboy", artist: "The Weeknd", album: "Starboy", duration: "3:50", image: "https://images.unsplash.com/photo-1493225457124-a1a2a5f5f9af?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Starboy.mp3" },
-  { id: 7, title: "Save Your Tears", artist: "The Weeknd", album: "After Hours", duration: "3:35", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Save Your Tears.mp3" },
-  { id: 8, title: "Get Lucky", artist: "Daft Punk", album: "Random Access Memories", duration: "6:09", image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Daft Punk/Get Lucky.mp3" },
-  { id: 9, title: "One More Time", artist: "Daft Punk", album: "Discovery", duration: "5:20", image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Daft Punk/One More Time.mp3" },
-  { id: 10, title: "Harder, Better, Faster, Stronger", artist: "Daft Punk", album: "Discovery", duration: "3:44", image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Daft Punk/Harder Better Faster Stronger.mp3" }
-];
-
-const INITIAL_SEARCH_ALBUMS = [
-  { id: 101, title: "After Hours", artist: "The Weeknd", year: "2020", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=250&h=250", path: "C:/Users/NIJANTH/Music/The Weeknd/After Hours" },
-  { id: 102, title: "Random Access Memories", artist: "Daft Punk", year: "2013", image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=250&h=250", path: "D:/Media/Music/Daft Punk/Random Access Memories" },
-  { id: 103, title: "Interstellar OST", artist: "Hans Zimmer", year: "2014", image: "https://images.unsplash.com/photo-1460036521480-c4b50f6a6c11?auto=format&fit=crop&q=80&w=250&h=250", path: "E:/Audio/Soundtracks/Interstellar OST" },
-  { id: 104, title: "When We All Fall Asleep", artist: "Billie Eilish", year: "2019", image: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&q=80&w=250&h=250", path: "C:/Users/NIJANTH/Music/Billie Eilish/When We All Fall Asleep" },
-  { id: 105, title: "Discovery", artist: "Daft Punk", year: "2001", image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=250&h=250", path: "D:/Media/Music/Daft Punk/Discovery" },
-  { id: 106, title: "Starboy", artist: "The Weeknd", year: "2016", image: "https://images.unsplash.com/photo-1493225457124-a1a2a5f5f9af?auto=format&fit=crop&q=80&w=250&h=250", path: "C:/Users/NIJANTH/Music/The Weeknd/Starboy" }
-];
+const INITIAL_QUEUE = [];
+const INITIAL_SEARCH_SONGS = [];
+const INITIAL_SEARCH_ALBUMS = [];
 
 export default function RightQueue({ isOpen, onClose }) {
-  const [queue, setQueue] = useState(INITIAL_QUEUE);
+  const [queue, setQueue] = useState([]);
   const [playlists, setPlaylists] = useState([]);
   const [activeMenuId, setActiveMenuId] = useState(null);
 
@@ -51,7 +28,7 @@ export default function RightQueue({ isOpen, onClose }) {
     const query = searchQuery.toLowerCase();
 
     // 1. Search Songs
-    const savedSongsStr = localStorage.getItem("music_songs");
+    const savedSongsStr = readDataSync("music_songs");
     let allSongs = [];
     if (savedSongsStr) {
       try {
@@ -66,7 +43,7 @@ export default function RightQueue({ isOpen, onClose }) {
     );
 
     // 2. Search Albums
-    const savedAlbumsStr = localStorage.getItem("music_albums");
+    const savedAlbumsStr = readDataSync("music_albums");
     let allAlbums = [];
     if (savedAlbumsStr) {
       try {
@@ -81,14 +58,14 @@ export default function RightQueue({ isOpen, onClose }) {
     );
 
     // 3. Search Playlists
-    const savedPlaylistsStr = localStorage.getItem("music_playlists");
+    const savedPlaylistsStr = readDataSync("music_playlists");
     let allPlaylists = [];
     if (savedPlaylistsStr) {
       try {
         allPlaylists = JSON.parse(savedPlaylistsStr);
       } catch (e) {}
     } else {
-      allPlaylists = ["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights", "Heavy Rock Anthems"];
+      allPlaylists = [];
     }
     const filteredPlaylists = allPlaylists.filter(
       plName => plName.toLowerCase().includes(query)
@@ -118,7 +95,7 @@ export default function RightQueue({ isOpen, onClose }) {
   };
 
   const handleAddAlbumToQueue = (album) => {
-    const savedSongsStr = localStorage.getItem("music_songs");
+    const savedSongsStr = readDataSync("music_songs");
     let allSongs = [];
     if (savedSongsStr) {
       try {
@@ -155,7 +132,7 @@ export default function RightQueue({ isOpen, onClose }) {
   };
 
   const handleAddPlaylistToQueue = (playlistName) => {
-    const savedSongsStr = localStorage.getItem(`music_playlist_songs_${playlistName}`);
+    const savedSongsStr = readDataSync(`music_playlist_songs_${playlistName}`);
     let playlistSongs = [];
     if (savedSongsStr) {
       try {
@@ -222,16 +199,16 @@ export default function RightQueue({ isOpen, onClose }) {
   // Load playlists from localStorage
   useEffect(() => {
     const loadPlaylistsList = () => {
-      const saved = localStorage.getItem("music_playlists");
+      const saved = readDataSync("music_playlists");
       if (saved) {
         try {
           setPlaylists(JSON.parse(saved));
         } catch (e) {
-          setPlaylists(["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights", "Heavy Rock Anthems"]);
+          setPlaylists([]);
         }
       } else {
-        const defaultPL = ["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights", "Heavy Rock Anthems"];
-        localStorage.setItem("music_playlists", JSON.stringify(defaultPL));
+        const defaultPL = [];
+        writeDataSync("music_playlists", JSON.stringify(defaultPL));
         setPlaylists(defaultPL);
       }
     };
@@ -311,7 +288,7 @@ export default function RightQueue({ isOpen, onClose }) {
 
   const handleAddToPlaylist = (song, playlistName) => {
     setActiveMenuId(null);
-    const saved = localStorage.getItem(`music_playlist_songs_${playlistName}`);
+    const saved = readDataSync(`music_playlist_songs_${playlistName}`);
     let playlistSongs = [];
     if (saved) {
       try {
@@ -325,7 +302,7 @@ export default function RightQueue({ isOpen, onClose }) {
     }
 
     const updated = [...playlistSongs, song];
-    localStorage.setItem(`music_playlist_songs_${playlistName}`, JSON.stringify(updated));
+    writeDataSync(`music_playlist_songs_${playlistName}`, JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent("playlistsChanged"));
     showToast(`Added "${song.title}" to "${playlistName}"`);
   };

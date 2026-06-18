@@ -3,121 +3,21 @@ import { Play, Dices, Folder, Sparkles, Music, MoreVertical, Edit3, Trash2, Fold
 import "./Home.css";
 import "./Songs.css"; // Reuse context menu styles
 import { toggleLikeSong, isSongLiked, addToQueue, playTrack } from "../utils/musicShared";
+import { readDataSync, writeDataSync } from '../utils/tauribridge';
 
-const ALL_MOCK_ALBUMS = [
-  { id: 101, title: "After Hours", artist: "The Weeknd", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=250&h=250" },
-  { id: 102, title: "Random Access Memories", artist: "Daft Punk", image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=250&h=250" },
-  { id: 103, title: "Interstellar OST", artist: "Hans Zimmer", image: "https://images.unsplash.com/photo-1460036521480-c4b50f6a6c11?auto=format&fit=crop&q=80&w=250&h=250" },
-  { id: 104, title: "When We All Fall Asleep", artist: "Billie Eilish", image: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&q=80&w=250&h=250" },
-  { id: 105, title: "Discovery", artist: "Daft Punk", image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=250&h=250" },
-  { id: 106, title: "Starboy", artist: "The Weeknd", image: "https://images.unsplash.com/photo-1493225457124-a1a2a5f5f9af?auto=format&fit=crop&q=80&w=250&h=250" },
-  { id: 107, title: "Inception OST", artist: "Hans Zimmer", image: "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?auto=format&fit=crop&q=80&w=250&h=250" },
-  { id: 108, title: "Don't Smile at Me", artist: "Billie Eilish", image: "https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&q=80&w=250&h=250" },
-  { id: 109, title: "Dawn FM", artist: "The Weeknd", image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=250&h=250" },
-  { id: 110, title: "Homework", artist: "Daft Punk", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=250&h=250" },
-  { id: 111, title: "Dune OST", artist: "Hans Zimmer", image: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&q=80&w=250&h=250" },
-  { id: 112, title: "Happier Than Ever", artist: "Billie Eilish", image: "https://images.unsplash.com/photo-1460036521480-c4b50f6a6c11?auto=format&fit=crop&q=80&w=250&h=250" },
-];
-
-const ALL_MOCK_ARTISTS = [
-  {
-    id: 201,
-    name: "The Weeknd",
-    genre: "R&B / Pop",
-    followers: "78.4M",
-    image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=250&h=250",
-    tracks: [
-      { id: 1, title: "Blinding Lights", album: "After Hours", duration: "3:20" },
-      { id: 2, title: "Starboy", album: "Starboy", duration: "3:50" },
-      { id: 3, title: "Save Your Tears", album: "After Hours", duration: "3:35" }
-    ]
-  },
-  {
-    id: 202,
-    name: "Daft Punk",
-    genre: "Electronic / House",
-    followers: "18.2M",
-    image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=250&h=250",
-    tracks: [
-      { id: 4, title: "Get Lucky", album: "Random Access Memories", duration: "6:09" },
-      { id: 5, title: "One More Time", album: "Discovery", duration: "5:20" },
-      { id: 6, title: "Harder, Better, Faster, Stronger", album: "Discovery", duration: "3:44" }
-    ]
-  },
-  {
-    id: 203,
-    name: "Hans Zimmer",
-    genre: "Cinematic / Classical",
-    followers: "12.5M",
-    image: "https://images.unsplash.com/photo-1460036521480-c4b50f6a6c11?auto=format&fit=crop&q=80&w=250&h=250",
-    tracks: [
-      { id: 7, title: "Cornfield Chase", album: "Interstellar OST", duration: "2:06" },
-      { id: 8, title: "Time", album: "Inception OST", duration: "4:35" },
-      { id: 9, title: "Stay", album: "Interstellar OST", duration: "6:52" }
-    ]
-  },
-  {
-    id: 204,
-    name: "Billie Eilish",
-    genre: "Alternative / Pop",
-    followers: "48.9M",
-    image: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&q=80&w=250&h=250",
-    tracks: [
-      { id: 10, title: "Bad Guy", album: "When We All Fall Asleep", duration: "3:14" },
-      { id: 11, title: "Ocean Eyes", album: "Don't Smile at Me", duration: "3:20" },
-      { id: 12, title: "Happier Than Ever", album: "Happier Than Ever", duration: "4:58" }
-    ]
-  }
-];
-
-const INITIAL_ADDED_DRIVE_ALBUMS = [
-  {
-    id: 1,
-    title: "Vaporwave Nights",
-    artist: "Synthwave",
-    image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=250&h=250",
-    path: "D:/Music/Vaporwave/Vaporwave Nights",
-    dateAdded: "2 hours ago",
-    timestamp: 1
-  },
-  {
-    id: 2,
-    title: "Focus Flow Beats",
-    artist: "Lo-Fi Beats",
-    image: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&q=80&w=250&h=250",
-    path: "C:/Users/NIJANTH/Music/Focus Flow",
-    dateAdded: "Yesterday",
-    timestamp: 2
-  },
-  {
-    id: 3,
-    title: "Deep House 2026",
-    artist: "Mixed Artists",
-    image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=250&h=250",
-    path: "D:/Media/Tracks/Deep House 2026",
-    dateAdded: "3 days ago",
-    timestamp: 3
-  },
-  {
-    id: 4,
-    title: "Acoustic Morning",
-    artist: "Indie Folk",
-    image: "https://images.unsplash.com/photo-1460036521480-c4b50f6a6c11?auto=format&fit=crop&q=80&w=250&h=250",
-    path: "E:/Audio/Folk/Acoustic Morning",
-    dateAdded: "Last week",
-    timestamp: 4
-  }
-];
+const ALL_MOCK_ALBUMS = [];
+const ALL_MOCK_ARTISTS = [];
+const INITIAL_ADDED_DRIVE_ALBUMS = [];
 
 export default function Home() {
   const [driveAlbums, setDriveAlbums] = useState(() => {
-    const saved = localStorage.getItem("music_drive_albums");
+    const saved = readDataSync("music_drive_albums");
     if (saved) {
       try {
         return JSON.parse(saved);
       } catch (e) {}
     }
-    return INITIAL_ADDED_DRIVE_ALBUMS;
+    return [];
   });
   const [randomAlbums, setRandomAlbums] = useState([]);
   const [spotlightArtist, setSpotlightArtist] = useState(null);
@@ -145,16 +45,16 @@ export default function Home() {
   // Load playlists from localStorage
   useEffect(() => {
     const loadPlaylistsList = () => {
-      const saved = localStorage.getItem("music_playlists");
+      const saved = readDataSync("music_playlists");
       if (saved) {
         try {
           setPlaylists(JSON.parse(saved));
         } catch (e) {
-          setPlaylists(["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights"]);
+          setPlaylists([]);
         }
       } else {
-        const defaultPL = ["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights"];
-        localStorage.setItem("music_playlists", JSON.stringify(defaultPL));
+        const defaultPL = [];
+        writeDataSync("music_playlists", JSON.stringify(defaultPL));
         setPlaylists(defaultPL);
       }
     };
@@ -187,18 +87,54 @@ export default function Home() {
   }, []);
 
   const rollTheDice = () => {
-    const shuffled = [...ALL_MOCK_ALBUMS].sort(() => 0.5 - Math.random());
+    const saved = readDataSync("music_albums");
+    let albums = [];
+    if (saved) {
+      try { albums = JSON.parse(saved); } catch(e) {}
+    }
+    const shuffled = [...albums].sort(() => 0.5 - Math.random());
     setRandomAlbums(shuffled.slice(0, 4));
   };
 
   const spotlightRandomArtist = () => {
-    const randomIndex = Math.floor(Math.random() * ALL_MOCK_ARTISTS.length);
-    setSpotlightArtist(ALL_MOCK_ARTISTS[randomIndex]);
+    const saved = readDataSync("music_artists");
+    let artists = [];
+    if (saved) {
+      try { artists = JSON.parse(saved); } catch(e) {}
+    }
+    if (artists.length > 0) {
+      const randomIndex = Math.floor(Math.random() * artists.length);
+      setSpotlightArtist(artists[randomIndex]);
+    } else {
+      setSpotlightArtist(null);
+    }
   };
 
   useEffect(() => {
     rollTheDice();
     spotlightRandomArtist();
+  }, []);
+
+  // Sync state on library changes
+  useEffect(() => {
+    const handleLibraryChange = () => {
+      rollTheDice();
+      spotlightRandomArtist();
+      const savedDrive = readDataSync("music_drive_albums");
+      if (savedDrive) {
+        try { setDriveAlbums(JSON.parse(savedDrive)); } catch(e) {}
+      } else {
+        setDriveAlbums([]);
+      }
+    };
+    window.addEventListener("songsChanged", handleLibraryChange);
+    window.addEventListener("albumsChanged", handleLibraryChange);
+    window.addEventListener("artistsChanged", handleLibraryChange);
+    return () => {
+      window.removeEventListener("songsChanged", handleLibraryChange);
+      window.removeEventListener("albumsChanged", handleLibraryChange);
+      window.removeEventListener("artistsChanged", handleLibraryChange);
+    };
   }, []);
 
   const showToast = (message) => {
@@ -247,7 +183,7 @@ export default function Home() {
         artist: trimmedArtist
       } : item);
       setDriveAlbums(updated);
-      localStorage.setItem("music_drive_albums", JSON.stringify(updated));
+      writeDataSync("music_drive_albums", JSON.stringify(updated));
     } else if (renameType === "randomAlbum") {
       const oldVal = randomAlbums.find(item => item.id === renameItem.id);
       if (oldVal) {
@@ -302,7 +238,7 @@ export default function Home() {
     if (coverType === "drive") {
       const updated = driveAlbums.map(item => item.id === coverItem.id ? { ...item, image: newImage } : item);
       setDriveAlbums(updated);
-      localStorage.setItem("music_drive_albums", JSON.stringify(updated));
+      writeDataSync("music_drive_albums", JSON.stringify(updated));
     } else if (coverType === "randomAlbum") {
       const updated = randomAlbums.map(item => item.id === coverItem.id ? { ...item, image: newImage } : item);
       setRandomAlbums(updated);
@@ -314,13 +250,13 @@ export default function Home() {
     }
 
     // Update current playing track metadata if it matches
-    const savedCurrent = localStorage.getItem("music_current_track");
+    const savedCurrent = readDataSync("music_current_track");
     if (savedCurrent) {
       try {
         const currentTrack = JSON.parse(savedCurrent);
         if (currentTrack.title.toLowerCase() === coverItem.title?.toLowerCase()) {
           const updatedTrack = { ...currentTrack, image: newImage };
-          localStorage.setItem("music_current_track", JSON.stringify(updatedTrack));
+          writeDataSync("music_current_track", JSON.stringify(updatedTrack));
           window.dispatchEvent(new CustomEvent("currentTrackChanged", { detail: updatedTrack }));
         }
       } catch (e) {}
@@ -334,7 +270,7 @@ export default function Home() {
   const handleDeleteDriveAlbum = (id) => {
     const updated = driveAlbums.filter(item => item.id !== id);
     setDriveAlbums(updated);
-    localStorage.setItem("music_drive_albums", JSON.stringify(updated));
+    writeDataSync("music_drive_albums", JSON.stringify(updated));
     setActiveMenuId(null);
     showToast("Folder removed.");
   };
@@ -358,7 +294,7 @@ export default function Home() {
   const handleAddToPlaylist = (item, playlistName) => {
     setActiveMenuId(null);
     let allSongs = [];
-    const savedSongs = localStorage.getItem("music_songs");
+    const savedSongs = readDataSync("music_songs");
     if (savedSongs) {
       try { allSongs = JSON.parse(savedSongs); } catch (e) {}
     }
@@ -379,7 +315,7 @@ export default function Home() {
       return;
     }
 
-    const saved = localStorage.getItem(`music_playlist_songs_${playlistName}`);
+    const saved = readDataSync(`music_playlist_songs_${playlistName}`);
     let playlistSongs = [];
     if (saved) {
       try { playlistSongs = JSON.parse(saved); } catch (e) {}
@@ -399,7 +335,7 @@ export default function Home() {
       return;
     }
 
-    localStorage.setItem(`music_playlist_songs_${playlistName}`, JSON.stringify(nextSongs));
+    writeDataSync(`music_playlist_songs_${playlistName}`, JSON.stringify(nextSongs));
     window.dispatchEvent(new CustomEvent("playlistsChanged"));
 
     if (typeof item === "object" && !item.duration) {
@@ -416,7 +352,7 @@ export default function Home() {
       preselectedSong = item;
     } else if (typeof item === "string") {
       let allSongs = [];
-      const savedSongs = localStorage.getItem("music_songs");
+      const savedSongs = readDataSync("music_songs");
       if (savedSongs) {
         try { allSongs = JSON.parse(savedSongs); } catch (e) {}
       }
@@ -717,7 +653,13 @@ export default function Home() {
           </div>
           <div className="spotlight-container">
             <div className="spotlight-hero">
-              <img src={spotlightArtist.image} alt={spotlightArtist.name} className="spotlight-avatar" />
+              {spotlightArtist.image ? (
+                <img src={spotlightArtist.image} alt={spotlightArtist.name} className="spotlight-avatar" />
+              ) : (
+                <div className="spotlight-avatar" style={{ display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.05)", fontSize: "32px", fontWeight: "bold", color: "#6c5ce7" }}>
+                  {spotlightArtist.name.charAt(0).toUpperCase()}
+                </div>
+              )}
               <div className="spotlight-info">
                 <span className="spotlight-tag">Featured Artist</span>
                 <h3 className="spotlight-name">{spotlightArtist.name}</h3>

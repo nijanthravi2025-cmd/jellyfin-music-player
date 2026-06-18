@@ -5,70 +5,76 @@ import { toggleLikeSong, isSongLiked, addToQueue, playTrack } from "../utils/mus
 import "./Home.css"; // Reuse card-grid and card layouts
 import "./Songs.css"; // Reuse table styling and toast banners
 import "./Artists.css"; // Reuse artists-grid layout styling
+import { readDataSync, writeDataSync } from '../utils/tauribridge';
 
 // Shared database of all mock songs in the app
-const INITIAL_SEARCH_SONGS = [
-  { id: 1, title: "After Hours", artist: "The Weeknd", album: "After Hours", duration: "6:01", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/After Hours.mp3" },
-  { id: 2, title: "Blinding Lights", artist: "The Weeknd", album: "After Hours", duration: "3:20", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Blinding Lights.mp3" },
-  { id: 3, title: "Midnight City", artist: "M83", album: "Hurry Up, We're Dreaming", duration: "4:03", image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Downloads/Midnight City.wav" },
-  { id: 4, title: "Strobe", artist: "deadmau5", album: "For Lack of a Better Name", duration: "10:37", image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=150&h=150", path: "D:/Media/Audio/Electronic/Strobe.flac" },
-  { id: 5, title: "Intro", artist: "The xx", album: "xx", duration: "2:08", image: "https://images.unsplash.com/photo-1460036521480-c4b50f6a6c11?auto=format&fit=crop&q=80&w=150&h=150", path: "D:/Media/Tracks/The xx - Intro.mp3" },
-  { id: 6, title: "Starboy", artist: "The Weeknd", album: "Starboy", duration: "3:50", image: "https://images.unsplash.com/photo-1493225457124-a1a2a5f5f9af?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Starboy.mp3" },
-  { id: 7, title: "Save Your Tears", artist: "The Weeknd", album: "After Hours", duration: "3:35", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Save Your Tears.mp3" },
-  { id: 8, title: "Get Lucky", artist: "Daft Punk", album: "Random Access Memories", duration: "6:09", image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Daft Punk/Get Lucky.mp3" },
-  { id: 9, title: "One More Time", artist: "Daft Punk", album: "Discovery", duration: "5:20", image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Daft Punk/One More Time.mp3" },
-  { id: 10, title: "Harder, Better, Faster, Stronger", artist: "Daft Punk", album: "Discovery", duration: "3:44", image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150&h=150", path: "C:/Users/NIJANTH/Music/Daft Punk/Harder Better Faster Stronger.mp3" }
-];
-
-// Shared database of all mock albums in the app
-const INITIAL_SEARCH_ALBUMS = [
-  { id: 101, title: "After Hours", artist: "The Weeknd", year: "2020", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=250&h=250", path: "C:/Users/NIJANTH/Music/The Weeknd/After Hours" },
-  { id: 102, title: "Random Access Memories", artist: "Daft Punk", year: "2013", image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=250&h=250", path: "D:/Media/Music/Daft Punk/Random Access Memories" },
-  { id: 103, title: "Interstellar OST", artist: "Hans Zimmer", year: "2014", image: "https://images.unsplash.com/photo-1460036521480-c4b50f6a6c11?auto=format&fit=crop&q=80&w=250&h=250", path: "E:/Audio/Soundtracks/Interstellar OST" },
-  { id: 104, title: "When We All Fall Asleep", artist: "Billie Eilish", year: "2019", image: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&q=80&w=250&h=250", path: "C:/Users/NIJANTH/Music/Billie Eilish/When We All Fall Asleep" },
-  { id: 105, title: "Discovery", artist: "Daft Punk", year: "2001", image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=250&h=250", path: "D:/Media/Music/Daft Punk/Discovery" },
-  { id: 106, title: "Starboy", artist: "The Weeknd", year: "2016", image: "https://images.unsplash.com/photo-1493225457124-a1a2a5f5f9af?auto=format&fit=crop&q=80&w=250&h=250", path: "C:/Users/NIJANTH/Music/The Weeknd/Starboy" }
-];
-
-// Shared database of all mock artists in the app
-const INITIAL_SEARCH_ARTISTS = [
-  { id: 201, name: "The Weeknd", type: "Artist", genre: "R&B / Pop", followers: "78.4M", image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=250&h=250" },
-  { id: 202, name: "Daft Punk", type: "Duo", genre: "Electronic / House", followers: "18.2M", image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=250&h=250" },
-  { id: 203, name: "Hans Zimmer", type: "Composer", genre: "Cinematic / Classical", followers: "12.5M", image: "https://images.unsplash.com/photo-1460036521480-c4b50f6a6c11?auto=format&fit=crop&q=80&w=250&h=250" },
-  { id: 204, name: "Billie Eilish", type: "Artist", genre: "Alternative / Pop", followers: "48.9M", image: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&q=80&w=250&h=250" },
-];
+const INITIAL_SEARCH_SONGS = [];
+const INITIAL_SEARCH_ALBUMS = [];
+const INITIAL_SEARCH_ARTISTS = [];
 
 export default function Search() {
   const [searchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
 
   const [songs, setSongs] = useState(() => {
-    const saved = localStorage.getItem("music_songs");
+    const saved = readDataSync("music_songs");
     if (saved) {
       try {
         return JSON.parse(saved);
       } catch (e) {}
     }
-    return INITIAL_SEARCH_SONGS;
+    return [];
   });
   const [albums, setAlbums] = useState(() => {
-    const saved = localStorage.getItem("music_albums");
+    const saved = readDataSync("music_albums");
     if (saved) {
       try {
         return JSON.parse(saved);
       } catch (e) {}
     }
-    return INITIAL_SEARCH_ALBUMS;
+    return [];
   });
   const [artists, setArtists] = useState(() => {
-    const saved = localStorage.getItem("music_artists");
+    const saved = readDataSync("music_artists");
     if (saved) {
       try {
         return JSON.parse(saved);
       } catch (e) {}
     }
-    return INITIAL_SEARCH_ARTISTS;
+    return [];
   });
+
+  // Listen to library scan updates
+  useEffect(() => {
+    const handleLibraryChange = () => {
+      const savedSongs = readDataSync("music_songs");
+      if (savedSongs) {
+        try { setSongs(JSON.parse(savedSongs)); } catch (e) {}
+      } else {
+        setSongs([]);
+      }
+      const savedAlbums = readDataSync("music_albums");
+      if (savedAlbums) {
+        try { setAlbums(JSON.parse(savedAlbums)); } catch (e) {}
+      } else {
+        setAlbums([]);
+      }
+      const savedArtists = readDataSync("music_artists");
+      if (savedArtists) {
+        try { setArtists(JSON.parse(savedArtists)); } catch (e) {}
+      } else {
+        setArtists([]);
+      }
+    };
+    window.addEventListener("songsChanged", handleLibraryChange);
+    window.addEventListener("albumsChanged", handleLibraryChange);
+    window.addEventListener("artistsChanged", handleLibraryChange);
+    return () => {
+      window.removeEventListener("songsChanged", handleLibraryChange);
+      window.removeEventListener("albumsChanged", handleLibraryChange);
+      window.removeEventListener("artistsChanged", handleLibraryChange);
+    };
+  }, []);
   const [playlists, setPlaylists] = useState([]);
   
   const [activeMenuId, setActiveMenuId] = useState(null); // format: 'song-ID', 'album-ID', 'artist-ID', 'top-...'
@@ -94,16 +100,16 @@ export default function Search() {
   // Load playlists from localStorage
   useEffect(() => {
     const loadPlaylistsList = () => {
-      const saved = localStorage.getItem("music_playlists");
+      const saved = readDataSync("music_playlists");
       if (saved) {
         try {
           setPlaylists(JSON.parse(saved));
         } catch (e) {
-          setPlaylists(["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights"]);
+          setPlaylists([]);
         }
       } else {
-        const defaultPL = ["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights"];
-        localStorage.setItem("music_playlists", JSON.stringify(defaultPL));
+        const defaultPL = [];
+        writeDataSync("music_playlists", JSON.stringify(defaultPL));
         setPlaylists(defaultPL);
       }
     };
@@ -174,10 +180,10 @@ export default function Search() {
         album: trimmedAlbum
       } : song);
       setSongs(updatedSongs);
-      localStorage.setItem("music_songs", JSON.stringify(updatedSongs));
+      writeDataSync("music_songs", JSON.stringify(updatedSongs));
 
       // Sync liked songs list if renamed
-      const savedLiked = localStorage.getItem("music_liked_songs");
+      const savedLiked = readDataSync("music_liked_songs");
       if (savedLiked) {
         try {
           const likedList = JSON.parse(savedLiked);
@@ -187,13 +193,13 @@ export default function Search() {
             artist: trimmedArtist,
             album: trimmedAlbum
           } : song);
-          localStorage.setItem("music_liked_songs", JSON.stringify(updatedLiked));
+          writeDataSync("music_liked_songs", JSON.stringify(updatedLiked));
           window.dispatchEvent(new CustomEvent("likedSongsChanged", { detail: updatedLiked }));
         } catch (e) {}
       }
 
       // Sync current playing track metadata if renamed
-      const savedCurrent = localStorage.getItem("music_current_track");
+      const savedCurrent = readDataSync("music_current_track");
       if (savedCurrent) {
         try {
           const currentTrack = JSON.parse(savedCurrent);
@@ -204,7 +210,7 @@ export default function Search() {
               artist: trimmedArtist,
               album: trimmedAlbum
             };
-            localStorage.setItem("music_current_track", JSON.stringify(updatedTrack));
+            writeDataSync("music_current_track", JSON.stringify(updatedTrack));
             window.dispatchEvent(new CustomEvent("currentTrackChanged", { detail: updatedTrack }));
           }
         } catch (e) {}
@@ -222,7 +228,7 @@ export default function Search() {
         artist: trimmedArtist
       } : album);
       setAlbums(updatedAlbums);
-      localStorage.setItem("music_albums", JSON.stringify(updatedAlbums));
+      writeDataSync("music_albums", JSON.stringify(updatedAlbums));
     } else if (renameType === "artist") {
       const oldVal = artists.find(art => art.id === renameItem.id);
       if (oldVal && oldVal.name !== trimmedTitle) {
@@ -234,10 +240,10 @@ export default function Search() {
         name: trimmedTitle
       } : artist);
       setArtists(updatedArtists);
-      localStorage.setItem("music_artists", JSON.stringify(updatedArtists));
+      writeDataSync("music_artists", JSON.stringify(updatedArtists));
 
       // Also update any tracks references!
-      const savedSongs = localStorage.getItem("music_songs");
+      const savedSongs = readDataSync("music_songs");
       if (savedSongs) {
         try {
           const parsedSongs = JSON.parse(savedSongs);
@@ -245,7 +251,7 @@ export default function Search() {
             ...s,
             artist: trimmedTitle
           } : s);
-          localStorage.setItem("music_songs", JSON.stringify(updatedSongs));
+          writeDataSync("music_songs", JSON.stringify(updatedSongs));
           window.dispatchEvent(new CustomEvent("songsChanged"));
         } catch (e) {}
       }
@@ -276,10 +282,10 @@ export default function Search() {
     if (coverType === "song") {
       const updatedSongs = songs.map(song => song.id === coverItem.id ? { ...song, image: newImage } : song);
       setSongs(updatedSongs);
-      localStorage.setItem("music_songs", JSON.stringify(updatedSongs));
+      writeDataSync("music_songs", JSON.stringify(updatedSongs));
 
       // Sync liked songs list if updated
-      const savedLiked = localStorage.getItem("music_liked_songs");
+      const savedLiked = readDataSync("music_liked_songs");
       if (savedLiked) {
         try {
           const likedList = JSON.parse(savedLiked);
@@ -287,25 +293,25 @@ export default function Search() {
             ...song,
             image: newImage
           } : song);
-          localStorage.setItem("music_liked_songs", JSON.stringify(updatedLiked));
+          writeDataSync("music_liked_songs", JSON.stringify(updatedLiked));
           window.dispatchEvent(new CustomEvent("likedSongsChanged", { detail: updatedLiked }));
         } catch (e) {}
       }
     } else if (coverType === "album") {
       const updatedAlbums = albums.map(album => album.id === coverItem.id ? { ...album, image: newImage } : album);
       setAlbums(updatedAlbums);
-      localStorage.setItem("music_albums", JSON.stringify(updatedAlbums));
+      writeDataSync("music_albums", JSON.stringify(updatedAlbums));
     }
 
     // Sync current playing track metadata if updated
-    const savedCurrent = localStorage.getItem("music_current_track");
+    const savedCurrent = readDataSync("music_current_track");
     if (savedCurrent) {
       try {
         const currentTrack = JSON.parse(savedCurrent);
         if (currentTrack.title.toLowerCase() === coverItem.title?.toLowerCase() || 
             (currentTrack.album && currentTrack.album.toLowerCase() === coverItem.title?.toLowerCase())) {
           const updatedTrack = { ...currentTrack, image: newImage };
-          localStorage.setItem("music_current_track", JSON.stringify(updatedTrack));
+          writeDataSync("music_current_track", JSON.stringify(updatedTrack));
           window.dispatchEvent(new CustomEvent("currentTrackChanged", { detail: updatedTrack }));
         }
       } catch (e) {}
@@ -320,17 +326,17 @@ export default function Search() {
     if (type === "song") {
       const updatedSongs = songs.filter(song => song.id !== id);
       setSongs(updatedSongs);
-      localStorage.setItem("music_songs", JSON.stringify(updatedSongs));
+      writeDataSync("music_songs", JSON.stringify(updatedSongs));
       showToast("Song removed from results.");
     } else if (type === "album") {
       const updatedAlbums = albums.filter(album => album.id !== id);
       setAlbums(updatedAlbums);
-      localStorage.setItem("music_albums", JSON.stringify(updatedAlbums));
+      writeDataSync("music_albums", JSON.stringify(updatedAlbums));
       showToast("Album removed from results.");
     } else if (type === "artist") {
       const updatedArtists = artists.filter(artist => artist.id !== id);
       setArtists(updatedArtists);
-      localStorage.setItem("music_artists", JSON.stringify(updatedArtists));
+      writeDataSync("music_artists", JSON.stringify(updatedArtists));
       showToast("Artist removed from results.");
     }
     setActiveMenuId(null);
@@ -339,7 +345,7 @@ export default function Search() {
   const handleAddToPlaylist = (item, playlistName) => {
     setActiveMenuId(null);
     let allSongs = [];
-    const savedSongs = localStorage.getItem("music_songs");
+    const savedSongs = readDataSync("music_songs");
     if (savedSongs) {
       try { allSongs = JSON.parse(savedSongs); } catch (e) {}
     }
@@ -360,7 +366,7 @@ export default function Search() {
       return;
     }
 
-    const saved = localStorage.getItem(`music_playlist_songs_${playlistName}`);
+    const saved = readDataSync(`music_playlist_songs_${playlistName}`);
     let playlistSongs = [];
     if (saved) {
       try { playlistSongs = JSON.parse(saved); } catch (e) {}
@@ -380,7 +386,7 @@ export default function Search() {
       return;
     }
 
-    localStorage.setItem(`music_playlist_songs_${playlistName}`, JSON.stringify(nextSongs));
+    writeDataSync(`music_playlist_songs_${playlistName}`, JSON.stringify(nextSongs));
     window.dispatchEvent(new CustomEvent("playlistsChanged"));
 
     if (typeof item === "object" && !item.duration) {
@@ -397,7 +403,7 @@ export default function Search() {
       preselectedSong = item;
     } else if (typeof item === "string") {
       let allSongs = [];
-      const savedSongs = localStorage.getItem("music_songs");
+      const savedSongs = readDataSync("music_songs");
       if (savedSongs) {
         try { allSongs = JSON.parse(savedSongs); } catch (e) {}
       }

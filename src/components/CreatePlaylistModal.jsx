@@ -1,54 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { X, Search, Music, Check, Plus } from "lucide-react";
 import "./CreatePlaylistModal.css";
+import { readDataSync, writeDataSync } from '../utils/tauribridge';
 
-const mockSongs = [
-  {
-    id: 1,
-    title: "After Hours",
-    artist: "The Weeknd",
-    album: "After Hours",
-    duration: "6:01",
-    image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150",
-    path: "C:/Users/NIJANTH/Music/After Hours.mp3"
-  },
-  {
-    id: 2,
-    title: "Blinding Lights",
-    artist: "The Weeknd",
-    album: "After Hours",
-    duration: "3:20",
-    image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150",
-    path: "C:/Users/NIJANTH/Music/Blinding Lights.mp3"
-  },
-  {
-    id: 3,
-    title: "Midnight City",
-    artist: "M83",
-    album: "Hurry Up, We're Dreaming",
-    duration: "4:03",
-    image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150&h=150",
-    path: "C:/Users/NIJANTH/Downloads/Midnight City.wav"
-  },
-  {
-    id: 4,
-    title: "Strobe",
-    artist: "deadmau5",
-    album: "For Lack of a Better Name",
-    duration: "10:37",
-    image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=150&h=150",
-    path: "D:/Media/Audio/Electronic/Strobe.flac"
-  },
-  {
-    id: 5,
-    title: "Intro",
-    artist: "The xx",
-    album: "xx",
-    duration: "2:08",
-    image: "https://images.unsplash.com/photo-1460036521480-c4b50f6a6c11?auto=format&fit=crop&q=80&w=150&h=150",
-    path: "D:/Media/Tracks/The xx - Intro.mp3"
-  },
-];
+const mockSongs = [];
 
 export default function CreatePlaylistModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -62,15 +17,15 @@ export default function CreatePlaylistModal() {
     const handleOpen = (e) => {
       // Load songs from localStorage
       let allSongs = [];
-      const savedSongs = localStorage.getItem("music_songs");
+      const savedSongs = readDataSync("music_songs");
       if (savedSongs) {
         try {
           allSongs = JSON.parse(savedSongs);
         } catch (err) {
-          allSongs = mockSongs;
+          allSongs = [];
         }
       } else {
-        allSongs = mockSongs;
+        allSongs = [];
       }
       setSongs(allSongs);
       setPlaylistName("");
@@ -137,16 +92,16 @@ export default function CreatePlaylistModal() {
     const name = playlistName.trim();
 
     // Check if playlist already exists
-    const saved = localStorage.getItem("music_playlists");
+    const saved = readDataSync("music_playlists");
     let playlistNames = [];
     if (saved) {
       try {
         playlistNames = JSON.parse(saved);
       } catch (e) {
-        playlistNames = ["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights", "Heavy Rock Anthems"];
+        playlistNames = [];
       }
     } else {
-      playlistNames = ["Chill Acoustic Vibes", "Deep Focus Beats", "Vaporwave Nights", "Heavy Rock Anthems"];
+      playlistNames = [];
     }
 
     if (playlistNames.map((p) => p.toLowerCase()).includes(name.toLowerCase())) {
@@ -156,11 +111,11 @@ export default function CreatePlaylistModal() {
 
     // Save new playlist to list
     const updatedNames = [...playlistNames, name];
-    localStorage.setItem("music_playlists", JSON.stringify(updatedNames));
+    writeDataSync("music_playlists", JSON.stringify(updatedNames));
 
     // Save checked songs under music_playlist_songs_${playlistName}
     const selectedSongs = songs.filter((s) => selectedSongIds.has(s.id));
-    localStorage.setItem(`music_playlist_songs_${name}`, JSON.stringify(selectedSongs));
+    writeDataSync(`music_playlist_songs_${name}`, JSON.stringify(selectedSongs));
 
     // Notify other components
     window.dispatchEvent(new CustomEvent("playlistsChanged", { detail: updatedNames }));

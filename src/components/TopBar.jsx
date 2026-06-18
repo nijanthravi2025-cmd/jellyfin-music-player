@@ -24,6 +24,8 @@ import {
 import SearchBar from "./SearchBar";
 import "./TopBar.css";
 import "./ProfileSelect.css"; // Reuse profile modal styles
+import { readDataSync, writeDataSync, removeDataSync, scanMusicDirectory, getAudioMetadata, selectDirectory } from '../utils/tauribridge';
+import ImageCropperModal from "./ImageCropperModal";
 
 export default function TopBar() {
   const [isDirOpen, setIsDirOpen] = useState(false);
@@ -48,10 +50,11 @@ export default function TopBar() {
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [editProfileName, setEditProfileName] = useState("");
   const [editProfileAvatar, setEditProfileAvatar] = useState("");
+  const [tempProfileImage, setTempProfileImage] = useState(null);
   const [allProfiles, setAllProfiles] = useState([]);
 
   const [directories, setDirectories] = useState(() => {
-    const saved = localStorage.getItem("music_directories");
+    const saved = readDataSync("music_directories");
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -59,18 +62,14 @@ export default function TopBar() {
         // use default if parse fails
       }
     }
-    return [
-      { id: "1", name: "Downloads", path: "C:/Users/NIJANTH/Downloads" },
-      { id: "2", name: "Music Library", path: "C:/Users/NIJANTH/Music" },
-      { id: "3", name: "Music Pixel", path: "C:/Users/NIJANTH/Downloads/Web dev/Pixel Player/Music Pixel" },
-    ];
+    return [];
   });
 
   // Load profile data on mount
   // Load profile data on mount
   useEffect(() => {
     const profileId = sessionStorage.getItem("music_current_profile_id");
-    const savedProfiles = localStorage.getItem("music_profiles");
+    const savedProfiles = readDataSync("music_profiles");
 
     if (savedProfiles) {
       try {
@@ -83,6 +82,61 @@ export default function TopBar() {
             setEditProfileName(active.name);
             setEditProfileAvatar(active.avatar || "");
           }
+        }
+      } catch (e) {}
+    }
+
+    // Startup check: if no directories are specified, clear any stale mock or cached data
+    const savedDirs = readDataSync("music_directories");
+    let parsedDirs = [];
+    if (savedDirs) {
+      try {
+        parsedDirs = JSON.parse(savedDirs);
+      } catch (e) {}
+    }
+    if (parsedDirs.length === 0) {
+      const songs = readDataSync("music_songs");
+      const albums = readDataSync("music_albums");
+      const artists = readDataSync("music_artists");
+      const driveAlbums = readDataSync("music_drive_albums");
+
+      const hasSongs = songs && songs !== "[]";
+      const hasAlbums = albums && albums !== "[]";
+      const hasArtists = artists && artists !== "[]";
+      const hasDrive = driveAlbums && driveAlbums !== "[]";
+
+      if (hasSongs || hasAlbums || hasArtists || hasDrive) {
+        writeDataSync("music_songs", JSON.stringify([]));
+        writeDataSync("music_albums", JSON.stringify([]));
+        writeDataSync("music_artists", JSON.stringify([]));
+        writeDataSync("music_drive_albums", JSON.stringify([]));
+
+        window.dispatchEvent(new CustomEvent("songsChanged"));
+        window.dispatchEvent(new CustomEvent("albumsChanged"));
+        window.dispatchEvent(new CustomEvent("artistsChanged"));
+      }
+    }
+
+    // Check and wipe old mock playlists from database key
+    const playlistsStr = readDataSync("music_playlists");
+    if (playlistsStr) {
+      try {
+        const pls = JSON.parse(playlistsStr);
+        if (pls.includes("Chill Acoustic Vibes") || pls.includes("Deep Focus Beats") || pls.includes("Vaporwave Nights") || pls.includes("Heavy Rock Anthems")) {
+          writeDataSync("music_playlists", JSON.stringify([]));
+          window.dispatchEvent(new CustomEvent("playlistsChanged"));
+        }
+      } catch (e) {}
+    }
+
+    // Check and wipe old mock liked songs from database key
+    const likedStr = readDataSync("music_liked_songs");
+    if (likedStr) {
+      try {
+        const liked = JSON.parse(likedStr);
+        if (liked.some(song => song.title === "Midnight City" || song.title === "After Hours" || song.title === "Strobe" || song.title === "Blinding Lights" || song.title === "Intro")) {
+          writeDataSync("music_liked_songs", JSON.stringify([]));
+          window.dispatchEvent(new CustomEvent("likedSongsChanged"));
         }
       } catch (e) {}
     }
@@ -102,12 +156,12 @@ export default function TopBar() {
     const name = editProfileName.trim();
     const avatar = editProfileAvatar.trim();
 
-    const savedProfiles = localStorage.getItem("music_profiles");
+    const savedProfiles = readDataSync("music_profiles");
     if (savedProfiles) {
       try {
         const parsed = JSON.parse(savedProfiles);
         const updated = parsed.map(p => p.id === activeProfile.id ? { ...p, name, avatar } : p);
-        localStorage.setItem("music_profiles", JSON.stringify(updated));
+        writeDataSync("music_profiles", JSON.stringify(updated));
         
         setActiveProfile({ ...activeProfile, name, avatar });
       } catch (e) {}
@@ -118,7 +172,7 @@ export default function TopBar() {
 
   const handleDeleteActiveProfile = () => {
     if (!activeProfile) return;
-    const savedProfiles = localStorage.getItem("music_profiles");
+    const savedProfiles = readDataSync("music_profiles");
     if (savedProfiles) {
       try {
         const parsed = JSON.parse(savedProfiles);
@@ -129,11 +183,11 @@ export default function TopBar() {
 
         if (window.confirm("Are you sure you want to delete your current profile? All playlists and folders will be deleted permanently.")) {
           const updated = parsed.filter(p => p.id !== activeProfile.id);
-          localStorage.setItem("music_profiles", JSON.stringify(updated));
+          writeDataSync("music_profiles", JSON.stringify(updated));
 
           // Clean local storage keys associated with the profile
-          localStorage.removeItem("music_playlists_" + activeProfile.id);
-          localStorage.removeItem("music_directories_" + activeProfile.id);
+          removeDataSync("music_playlists_" + activeProfile.id);
+          removeDataSync("music_directories_" + activeProfile.id);
 
           // Clear current active profile and reload to show Selection Screen
           sessionStorage.removeItem("music_current_profile_id");
@@ -146,7 +200,7 @@ export default function TopBar() {
 
   // Save to localStorage whenever directories list changes
   useEffect(() => {
-    localStorage.setItem("music_directories", JSON.stringify(directories));
+    writeDataSync("music_directories", JSON.stringify(directories));
   }, [directories]);
 
   // Click outside to close dropdowns
@@ -164,27 +218,213 @@ export default function TopBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleRefresh = (e) => {
-    e.stopPropagation();
+  const triggerScan = async (targetDirs) => {
     if (isRefreshing) return;
     setIsRefreshing(true);
-    setToast("");
-    setTimeout(() => {
-      setIsRefreshing(false);
-      const hasJellyfin = directories.some(d => d.type === "jellyfin");
-      if (hasJellyfin) {
-        setToast("Directories & Jellyfin library scanned successfully!");
-      } else {
-        setToast("Directories scanned successfully!");
+    setToast("Scanning library directories...");
+
+    try {
+      // scanMusicDirectory and getAudioMetadata are statically imported at the top of the file
+      let allScannedSongs = [];
+
+      for (const dir of targetDirs) {
+        if (dir.type === "jellyfin") continue;
+        try {
+          const files = await scanMusicDirectory(dir.path);
+          for (const file of files) {
+            try {
+              const metadata = await getAudioMetadata(file.path);
+              if (metadata) {
+                allScannedSongs.push({
+                  id: file.path,
+                  title: metadata.title || file.filename,
+                  artist: metadata.artist || "Unknown Artist",
+                  album: metadata.album || "Unknown Album",
+                  duration: metadata.duration_formatted || "0:00",
+                  duration_secs: metadata.duration_secs || 0,
+                  image: metadata.cover_art_base64 || "",
+                  path: file.path
+                });
+              }
+            } catch (err) {
+              console.error("Failed to parse metadata for file:", file.path, err);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to scan directory path:", dir.path, err);
+        }
       }
-      setTimeout(() => setToast(""), 3000);
-    }, 800);
+
+      // Read old database values to preserve custom image overrides
+      let oldSongs = [];
+      const savedSongs = readDataSync("music_songs");
+      if (savedSongs) {
+        try { oldSongs = JSON.parse(savedSongs); } catch (e) {}
+      }
+
+      // Preserve custom song images
+      allScannedSongs = allScannedSongs.map(scanned => {
+        const matchedOld = oldSongs.find(old => old.id === scanned.id || old.path === scanned.path);
+        if (matchedOld && matchedOld.isCustomImage) {
+          return {
+            ...scanned,
+            image: matchedOld.image,
+            isCustomImage: true
+          };
+        }
+        return scanned;
+      });
+
+      // Save songs
+      writeDataSync("music_songs", JSON.stringify(allScannedSongs));
+
+      // Read old albums to preserve custom album images
+      let oldAlbums = [];
+      const savedAlbums = readDataSync("music_albums");
+      if (savedAlbums) {
+        try { oldAlbums = JSON.parse(savedAlbums); } catch (e) {}
+      }
+
+      // Derive albums
+      const albumMap = {};
+      allScannedSongs.forEach(song => {
+        const albumName = song.album || "Unknown Album";
+        const albumKey = `${albumName.toLowerCase()}::${(song.artist || "").toLowerCase()}`;
+        if (!albumMap[albumKey]) {
+          albumMap[albumKey] = {
+            id: albumKey,
+            title: albumName,
+            artist: song.artist || "Unknown Artist",
+            year: "Unknown",
+            image: song.image || "",
+            path: song.path.substring(0, song.path.lastIndexOf("/"))
+          };
+        } else if (!albumMap[albumKey].image && song.image) {
+          albumMap[albumKey].image = song.image;
+        }
+      });
+      const albumsList = Object.values(albumMap).map(derived => {
+        const matchedOld = oldAlbums.find(old => old.id === derived.id || old.title.toLowerCase() === derived.title.toLowerCase());
+        if (matchedOld && matchedOld.isCustomImage) {
+          return {
+            ...derived,
+            image: matchedOld.image,
+            isCustomImage: true
+          };
+        }
+        return derived;
+      });
+      writeDataSync("music_albums", JSON.stringify(albumsList));
+
+      // Read old artists to preserve custom artist images
+      let oldArtists = [];
+      const savedArtists = readDataSync("music_artists");
+      if (savedArtists) {
+        try { oldArtists = JSON.parse(savedArtists); } catch (e) {}
+      }
+
+      // Derive artists
+      const artistMap = {};
+      allScannedSongs.forEach(song => {
+        const artistName = song.artist || "Unknown Artist";
+        const artistKey = artistName.toLowerCase();
+        if (!artistMap[artistKey]) {
+          artistMap[artistKey] = {
+            id: artistKey,
+            name: artistName,
+            genre: "Unknown",
+            followers: "0",
+            image: song.image || "",
+            tracks: []
+          };
+        } else if (!artistMap[artistKey].image && song.image) {
+          artistMap[artistKey].image = song.image;
+        }
+        artistMap[artistKey].tracks.push({
+          id: song.id,
+          title: song.title,
+          album: song.album || "Unknown Album",
+          duration: song.duration,
+          path: song.path
+        });
+      });
+      const artistsList = Object.values(artistMap).map(derived => {
+        const matchedOld = oldArtists.find(old => old.id === derived.id || old.name.toLowerCase() === derived.name.toLowerCase());
+        if (matchedOld && matchedOld.isCustomImage) {
+          return {
+            ...derived,
+            image: matchedOld.image,
+            isCustomImage: true
+          };
+        }
+        return derived;
+      });
+      writeDataSync("music_artists", JSON.stringify(artistsList));
+
+      // Read old drive albums to preserve custom drive album images
+      let oldDriveAlbums = [];
+      const savedDrive = readDataSync("music_drive_albums");
+      if (savedDrive) {
+        try { oldDriveAlbums = JSON.parse(savedDrive); } catch (e) {}
+      }
+
+      // Also derive drive albums for the Home page
+      const driveMap = {};
+      allScannedSongs.forEach(song => {
+        const folderPath = song.path.substring(0, song.path.lastIndexOf("/"));
+        const folderName = folderPath.substring(folderPath.lastIndexOf("/") + 1);
+        if (!driveMap[folderPath]) {
+          driveMap[folderPath] = {
+            id: folderPath,
+            title: folderName || "Music Folder",
+            artist: song.artist || "Unknown Artist",
+            image: song.image || "",
+            path: folderPath,
+            dateAdded: "Scanned folder",
+            timestamp: Date.now()
+          };
+        } else if (!driveMap[folderPath].image && song.image) {
+          driveMap[folderPath].image = song.image;
+        }
+      });
+      const driveAlbumsList = Object.values(driveMap).map(derived => {
+        const matchedOld = oldDriveAlbums.find(old => old.id === derived.id || old.path === derived.path);
+        if (matchedOld && matchedOld.isCustomImage) {
+          return {
+            ...derived,
+            image: matchedOld.image,
+            isCustomImage: true
+          };
+        }
+        return derived;
+      });
+      writeDataSync("music_drive_albums", JSON.stringify(driveAlbumsList));
+
+      // Dispatch change events
+      window.dispatchEvent(new CustomEvent("songsChanged"));
+      window.dispatchEvent(new CustomEvent("albumsChanged"));
+      window.dispatchEvent(new CustomEvent("artistsChanged"));
+
+      setToast(`Scanned successfully! Found ${allScannedSongs.length} songs.`);
+    } catch (e) {
+      console.error("Refresh scan failed:", e);
+      setToast("Scan failed!");
+    } finally {
+      setIsRefreshing(false);
+      setTimeout(() => setToast(""), 4000);
+    }
+  };
+
+  const handleRefresh = (e) => {
+    e.stopPropagation();
+    triggerScan(directories);
   };
 
   const handleAddDirectory = (e) => {
     e.preventDefault();
     if (!newDirName.trim()) return;
 
+    let updatedDirs = [...directories];
     if (formType === "local") {
       if (!newDirPath.trim()) return;
       const newDir = {
@@ -193,11 +433,12 @@ export default function TopBar() {
         path: newDirPath.trim(),
         type: "local"
       };
-      setDirectories([...directories, newDir]);
+      updatedDirs = [...directories, newDir];
+      setDirectories(updatedDirs);
       setNewDirName("");
       setNewDirPath("");
       setIsAdding(false);
-      setToast("Directory added successfully!");
+      setToast("Directory added! Scanning folder...");
     } else {
       if (!jellyfinUrl.trim() || !jellyfinUsername.trim()) return;
       const newDir = {
@@ -210,23 +451,40 @@ export default function TopBar() {
         password: jellyfinPassword.trim(),
         connected: true
       };
-      setDirectories([...directories, newDir]);
+      updatedDirs = [...directories, newDir];
+      setDirectories(updatedDirs);
       setNewDirName("");
       setJellyfinUrl("");
       setJellyfinUsername("");
       setJellyfinPassword("");
       setFormType("local");
       setIsAdding(false);
-      setToast("Jellyfin server connected successfully!");
+      setToast("Jellyfin server connected!");
     }
     setTimeout(() => setToast(""), 3000);
+    triggerScan(updatedDirs);
   };
 
   const handleDeleteDirectory = (id, e) => {
     e.stopPropagation();
-    setDirectories(directories.filter((d) => d.id !== id));
-    setToast("Directory removed.");
+    const updatedDirs = directories.filter((d) => d.id !== id);
+    setDirectories(updatedDirs);
+    setToast("Directory removed. Scanning updated folders...");
     setTimeout(() => setToast(""), 3000);
+    triggerScan(updatedDirs);
+  };
+
+  const handleSelectLocalFolder = async () => {
+    const path = await selectDirectory();
+    if (path) {
+      setNewDirPath(path);
+      // Auto-populate name from folder name if name is empty
+      if (!newDirName.trim()) {
+        const parts = path.split('/');
+        const folderName = parts[parts.length - 1] || "Music Folder";
+        setNewDirName(folderName);
+      }
+    }
   };
 
   return (
@@ -400,13 +658,36 @@ export default function TopBar() {
                         required
                         autoFocus
                       />
-                      <input
-                        type="text"
-                        placeholder="Path (e.g., D:/Media/Music)"
-                        value={newDirPath}
-                        onChange={(e) => setNewDirPath(e.target.value)}
-                        required
-                      />
+                      <div className="dir-path-picker-row" style={{ display: "flex", gap: "8px", width: "100%", marginBottom: "12px" }}>
+                        <input
+                          type="text"
+                          placeholder="Path (e.g., D:/Media/Music)"
+                          value={newDirPath}
+                          onChange={(e) => setNewDirPath(e.target.value)}
+                          required
+                          style={{ flex: 1, marginBottom: 0 }}
+                        />
+                        <button
+                          type="button"
+                          className="btn-browse"
+                          onClick={handleSelectLocalFolder}
+                          style={{
+                            padding: "0 14px",
+                            backgroundColor: "#6c5ce7",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                            transition: "all 0.2s"
+                          }}
+                          onMouseOver={(e) => e.target.style.backgroundColor = "#5b4bc4"}
+                          onMouseOut={(e) => e.target.style.backgroundColor = "#6c5ce7"}
+                        >
+                          Browse...
+                        </button>
+                      </div>
                     </>
                   ) : (
                     <>
@@ -521,7 +802,6 @@ export default function TopBar() {
         </div>
       </div>
 
-      {/* EDIT PROFILE MODAL DIALOG */}
       {isEditProfileModalOpen && (
         <div className="profile-modal-backdrop" onClick={() => setIsEditProfileModalOpen(false)}>
           <div className="profile-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -574,10 +854,12 @@ export default function TopBar() {
                       if (file) {
                         const reader = new FileReader();
                         reader.onloadend = () => {
-                          setEditProfileAvatar(reader.result);
+                          setTempProfileImage(reader.result);
                         };
                         reader.readAsDataURL(file);
                       }
+                      // Reset value to allow uploading the same file again if canceled
+                      e.target.value = null;
                     }}
                   />
                   <label htmlFor="topbar-profile-custom-file-input" className="profile-custom-file-btn" style={{ margin: 0, display: "inline-flex", alignItems: "center" }}>
@@ -635,6 +917,17 @@ export default function TopBar() {
             </div>
           </div>
         </div>
+      )}
+
+      {tempProfileImage && (
+        <ImageCropperModal
+          imageSrc={tempProfileImage}
+          onCropComplete={(croppedBase64) => {
+            setEditProfileAvatar(croppedBase64);
+            setTempProfileImage(null);
+          }}
+          onClose={() => setTempProfileImage(null)}
+        />
       )}
     </header>
   );
