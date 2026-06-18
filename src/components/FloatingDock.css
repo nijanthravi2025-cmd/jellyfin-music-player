@@ -280,9 +280,9 @@
   z-index: 99999; /* Under cursor tooltips, but over everything else */
   
   /* Glassmorphism Backdrop */
-  background: rgba(10, 10, 12, 0.82);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
+  background: rgba(6, 6, 8, 0.96);
+  backdrop-filter: blur(100px);
+  -webkit-backdrop-filter: blur(100px);
   
   display: flex;
   justify-content: center;

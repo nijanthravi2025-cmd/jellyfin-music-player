@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { X, GripVertical, MoreVertical, Edit3, Trash2, Clipboard, FolderPlus, Check, XCircle, Search, Music, Disc, ListMusic } from "lucide-react";
 import "./Sidebars.css";
 import "../pages/Songs.css"; // Reuse context-menu and modal styles
-import { playTrack } from "../utils/musicShared";
+import { playTrack, getQueue, setQueue as saveQueue } from "../utils/musicShared";
 import { readDataSync, writeDataSync } from '../utils/tauribridge';
 
 const INITIAL_QUEUE = [];
@@ -10,7 +10,29 @@ const INITIAL_SEARCH_SONGS = [];
 const INITIAL_SEARCH_ALBUMS = [];
 
 export default function RightQueue({ isOpen, onClose }) {
-  const [queue, setQueue] = useState([]);
+  const [queue, setQueueState] = useState(() => getQueue());
+
+  useEffect(() => {
+    const handleQueueChange = (e) => {
+      setQueueState(e.detail || getQueue());
+    };
+    window.addEventListener("queueChanged", handleQueueChange);
+    return () => window.removeEventListener("queueChanged", handleQueueChange);
+  }, []);
+
+  const setQueue = (newQueueOrFunc) => {
+    if (typeof newQueueOrFunc === "function") {
+      setQueueState(prev => {
+        const next = newQueueOrFunc(prev);
+        saveQueue(next);
+        return next;
+      });
+    } else {
+      setQueueState(newQueueOrFunc);
+      saveQueue(newQueueOrFunc);
+    }
+  };
+
   const [playlists, setPlaylists] = useState([]);
   const [activeMenuId, setActiveMenuId] = useState(null);
 
@@ -229,16 +251,7 @@ export default function RightQueue({ isOpen, onClose }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Listen to global add-to-queue event
-  useEffect(() => {
-    const handleAddToQueue = (e) => {
-      if (e.detail) {
-        setQueue(prevQueue => [...prevQueue, e.detail]);
-      }
-    };
-    window.addEventListener("addToQueue", handleAddToQueue);
-    return () => window.removeEventListener("addToQueue", handleAddToQueue);
-  }, []);
+
 
   const showToast = (message) => {
     setToast(message);
@@ -497,6 +510,9 @@ export default function RightQueue({ isOpen, onClose }) {
                 className="queue-track-info" 
                 style={{ flex: 1, minWidth: 0, cursor: "pointer" }}
                 onClick={() => {
+                  const clickedIdx = idx;
+                  const updatedQueue = queue.slice(clickedIdx + 1);
+                  setQueue(updatedQueue);
                   playTrack(track);
                   showToast(`Playing "${track.title}"`);
                 }}

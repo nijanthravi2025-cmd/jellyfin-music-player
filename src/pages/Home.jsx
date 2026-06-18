@@ -4,6 +4,7 @@ import "./Home.css";
 import "./Songs.css"; // Reuse context menu styles
 import { toggleLikeSong, isSongLiked, addToQueue, playTrack } from "../utils/musicShared";
 import { readDataSync, writeDataSync } from '../utils/tauribridge';
+import ImageWithFallback from "../components/ImageWithFallback";
 
 const ALL_MOCK_ALBUMS = [];
 const ALL_MOCK_ARTISTS = [];
@@ -407,19 +408,22 @@ export default function Home() {
         </div>
         <div className="card-grid">
           {driveAlbums.map((item) => (
-            <div key={item.id} className="album-card" style={{ position: "relative", display: "flex", flexDirection: "column" }}>
+            <div 
+              key={item.id} 
+              className="album-card" 
+              style={{ position: "relative", display: "flex", flexDirection: "column", cursor: "pointer" }}
+              onClick={() => {
+                playTrack(item);
+                showToast(`Playing folder "${item.title}"`);
+              }}
+            >
               <span className="date-badge">{item.dateAdded}</span>
               <div className="card-image-container" style={{ marginTop: "12px" }}>
-                {item.image ? (
-                  <img src={item.image} alt={item.title} className="card-image" />
-                ) : (
-                  <div className="card-image" style={{ display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.05)", height: "100%" }}>
-                    <Music size={48} color="#a0a0a0" />
-                  </div>
-                )}
+                <ImageWithFallback src={item.image} alt={item.title} className="card-image" />
                  <button 
                   className="card-play-btn"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     playTrack(item);
                     showToast(`Playing folder "${item.title}"`);
                   }}
@@ -532,18 +536,21 @@ export default function Home() {
         </div>
         <div className="card-grid">
           {randomAlbums.map((item) => (
-            <div key={item.id} className="album-card" style={{ display: "flex", flexDirection: "column", position: "relative" }}>
+            <div 
+              key={item.id} 
+              className="album-card" 
+              style={{ display: "flex", flexDirection: "column", position: "relative", cursor: "pointer" }}
+              onClick={() => {
+                playTrack(item);
+                showToast(`Playing album "${item.title}"`);
+              }}
+            >
               <div className="card-image-container">
-                {item.image ? (
-                  <img src={item.image} alt={item.title} className="card-image" />
-                ) : (
-                  <div className="card-image" style={{ display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.05)", height: "100%" }}>
-                    <Music size={48} color="#a0a0a0" />
-                  </div>
-                )}
+                <ImageWithFallback src={item.image} alt={item.title} className="card-image" />
                 <button 
                   className="card-play-btn"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     playTrack(item);
                     showToast(`Playing album "${item.title}"`);
                   }}
@@ -654,7 +661,7 @@ export default function Home() {
           <div className="spotlight-container">
             <div className="spotlight-hero">
               {spotlightArtist.image ? (
-                <img src={spotlightArtist.image} alt={spotlightArtist.name} className="spotlight-avatar" />
+                <ImageWithFallback src={spotlightArtist.image} alt={spotlightArtist.name} className="spotlight-avatar" size={64} style={{ borderRadius: "50%" }} />
               ) : (
                 <div className="spotlight-avatar" style={{ display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.05)", fontSize: "32px", fontWeight: "bold", color: "#6c5ce7" }}>
                   {spotlightArtist.name.charAt(0).toUpperCase()}
@@ -675,7 +682,8 @@ export default function Home() {
                       key={track.id} 
                       className="spotlight-row"
                       onClick={() => {
-                        const songWithArtist = { ...track, artist: spotlightArtist.name };
+                        const path = track.path || `C:/Users/NIJANTH/Music/Spotlight/${spotlightArtist.name}/${track.title}.mp3`;
+                        const songWithArtist = { ...track, artist: spotlightArtist.name, path };
                         playTrack(songWithArtist);
                         showToast(`Playing "${track.title}"`);
                       }}
@@ -687,7 +695,8 @@ export default function Home() {
                           title="Play"
                           onClick={(e) => {
                             e.stopPropagation();
-                            const songWithArtist = { ...track, artist: spotlightArtist.name };
+                            const path = track.path || `C:/Users/NIJANTH/Music/Spotlight/${spotlightArtist.name}/${track.title}.mp3`;
+                            const songWithArtist = { ...track, artist: spotlightArtist.name, path };
                             playTrack(songWithArtist);
                             showToast(`Playing "${track.title}"`);
                           }}
@@ -873,10 +882,11 @@ export default function Home() {
               <div className="modal-field" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "16px" }}>
                 <label className="modal-label" style={{ marginBottom: "8px" }}>Preview</label>
                 {editImage ? (
-                  <img 
+                  <ImageWithFallback 
                     src={editImage} 
                     alt="Preview" 
                     style={{ width: "120px", height: "120px", borderRadius: "8px", objectFit: "cover", border: "1px solid rgba(255,255,255,0.1)" }} 
+                    size={40}
                   />
                 ) : (
                   <div style={{ width: "120px", height: "120px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.05)" }}>

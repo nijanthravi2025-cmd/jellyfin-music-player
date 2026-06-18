@@ -6,6 +6,7 @@ import "./Home.css"; // Reuse card-grid and card layouts
 import "./Songs.css"; // Reuse table styling and toast banners
 import "./Artists.css"; // Reuse artists-grid layout styling
 import { readDataSync, writeDataSync } from '../utils/tauribridge';
+import ImageWithFallback from "../components/ImageWithFallback";
 
 // Shared database of all mock songs in the app
 const INITIAL_SEARCH_SONGS = [];
@@ -547,24 +548,12 @@ export default function Search() {
                   }
                 }}
               >
-                {topMatch.item.image ? (
-                  <img 
-                    src={topMatch.item.image} 
-                    alt={topMatch.item.title || topMatch.item.name} 
-                    style={{
-                      width: "80px",
-                      height: "80px",
-                      borderRadius: topMatch.type === "artist" ? "50%" : "6px",
-                      objectFit: "cover",
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.5)"
-                    }}
-                  />
-                ) : (
+                {topMatch.type === "artist" && !topMatch.item.image ? (
                   <div 
                     style={{
                       width: "80px",
                       height: "80px",
-                      borderRadius: topMatch.type === "artist" ? "50%" : "6px",
+                      borderRadius: "50%",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -576,8 +565,20 @@ export default function Search() {
                       color: "#6c5ce7"
                     }}
                   >
-                    {topMatch.type === "artist" ? topMatch.item.name.charAt(0).toUpperCase() : <Music size={40} color="#a0a0a0" />}
+                    {topMatch.item.name.charAt(0).toUpperCase()}
                   </div>
+                ) : (
+                  <ImageWithFallback 
+                    src={topMatch.item.image} 
+                    alt={topMatch.item.title || topMatch.item.name} 
+                    style={{
+                      width: "80px",
+                      height: "80px",
+                      borderRadius: topMatch.type === "artist" ? "50%" : "6px",
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.5)"
+                    }}
+                    size={40}
+                  />
                 )}
                 <div style={{ width: "100%" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
@@ -754,13 +755,7 @@ export default function Search() {
                         <td className="song-index">{idx + 1}</td>
                         <td>
                           <div className="song-info-col">
-                            {song.image ? (
-                              <img src={song.image} alt={song.title} className="song-thumbnail" />
-                            ) : (
-                              <div className="song-thumbnail" style={{ display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.05)" }}>
-                                <Music size={16} color="#a0a0a0" />
-                              </div>
-                            )}
+                            <ImageWithFallback src={song.image} alt={song.title} className="song-thumbnail" size={16} />
                             <div className="song-details">
                               <span className="song-name">{song.title}</span>
                               <span className="song-artist">{song.artist}</span>
@@ -878,13 +873,7 @@ export default function Search() {
                   return (
                     <div key={album.id} className="album-card" style={{ display: "flex", flexDirection: "column", position: "relative" }}>
                       <div className="card-image-container">
-                        {album.image ? (
-                          <img src={album.image} alt={album.title} className="card-image" />
-                        ) : (
-                          <div className="card-image" style={{ display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.05)", height: "100%" }}>
-                            <Music size={48} color="#a0a0a0" />
-                          </div>
-                        )}
+                        <ImageWithFallback src={album.image} alt={album.title} className="card-image" size={48} />
                         <button className="card-play-btn">
                           <Play size={24} fill="currentColor" className="play-icon-nudge" />
                         </button>
@@ -984,7 +973,7 @@ export default function Search() {
                     <div key={artist.id} className="artist-card" style={{ display: "flex", flexDirection: "column", position: "relative" }}>
                       <div className="artist-avatar-container">
                         {artist.image ? (
-                          <img src={artist.image} alt={artist.name} className="artist-avatar" />
+                          <ImageWithFallback src={artist.image} alt={artist.name} className="artist-avatar" size={40} style={{ borderRadius: "50%" }} />
                         ) : (
                           <div className="artist-avatar-fallback" style={{ fontSize: "32px" }}>
                             {artist.name.charAt(0).toUpperCase()}
@@ -1115,10 +1104,11 @@ export default function Search() {
               <div className="modal-field" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "16px" }}>
                 <label className="modal-label" style={{ marginBottom: "8px" }}>Preview</label>
                 {editImage ? (
-                  <img 
+                  <ImageWithFallback 
                     src={editImage} 
                     alt="Preview" 
                     style={{ width: "120px", height: "120px", borderRadius: "8px", objectFit: "cover", border: "1px solid rgba(255,255,255,0.1)" }} 
+                    size={40}
                   />
                 ) : (
                   <div style={{ width: "120px", height: "120px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.05)" }}>

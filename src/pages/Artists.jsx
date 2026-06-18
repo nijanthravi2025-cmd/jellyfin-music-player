@@ -4,6 +4,7 @@ import { playTrack, toggleLikeSong, isSongLiked, addToQueue } from "../utils/mus
 import "./Artists.css";
 import "./Songs.css"; // Reuse modal and table styling
 import { readDataSync, writeDataSync } from '../utils/tauribridge';
+import ImageWithFallback from "../components/ImageWithFallback";
 
 const mockArtists = [];
 
@@ -219,7 +220,7 @@ export default function Artists() {
             >
               <div className="artist-avatar-container">
                 {artist.image ? (
-                  <img src={artist.image} alt={artist.name} className="artist-avatar" />
+                  <ImageWithFallback src={artist.image} alt={artist.name} className="artist-avatar" size={40} style={{ borderRadius: "50%" }} />
                 ) : (
                   <div className="artist-avatar-fallback">
                     {artist.name.charAt(0).toUpperCase()}
@@ -317,10 +318,11 @@ export default function Artists() {
               </button>
               
               {selectedArtist.image ? (
-                <img 
+                <ImageWithFallback 
                   src={selectedArtist.image} 
                   alt={selectedArtist.name} 
                   style={{ width: "110px", height: "110px", borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.2)" }} 
+                  size={64}
                 />
               ) : (
                 <div style={{ width: "110px", height: "110px", borderRadius: "50%", border: "2px solid rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.05)", fontSize: "36px", fontWeight: "bold", color: "#6c5ce7" }}>
@@ -371,7 +373,7 @@ export default function Artists() {
                         <td className="song-index" style={{ color: "#a0a0a0" }}>{idx + 1}</td>
                         <td>
                           <div className="song-info-col">
-                            <img src={song.image} alt={song.title} className="song-thumbnail" />
+                            <ImageWithFallback src={song.image} alt={song.title} className="song-thumbnail" size={16} />
                             <div className="song-details">
                               <span className="song-name" style={{ color: "#fff", fontWeight: "600" }}>{song.title}</span>
                               <span className="song-artist" style={{ color: "#a0a0a0", fontSize: "12px" }}>{song.artist}</span>
@@ -490,10 +492,11 @@ export default function Artists() {
               <div className="modal-field" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "16px" }}>
                 <label className="modal-label" style={{ marginBottom: "8px" }}>Preview</label>
                 {editArtistImage ? (
-                  <img 
+                  <ImageWithFallback 
                     src={editArtistImage} 
                     alt="Preview" 
                     style={{ width: "120px", height: "120px", borderRadius: "50%", objectFit: "cover", border: "1px solid rgba(255,255,255,0.1)" }} 
+                    size={40}
                   />
                 ) : (
                   <div style={{ width: "120px", height: "120px", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.05)" }}>

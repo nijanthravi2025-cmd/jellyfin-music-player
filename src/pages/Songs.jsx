@@ -3,6 +3,7 @@ import { Play, Heart, Clock, MoreVertical, Edit3, Trash2, FolderPlus, Check, X, 
 import "./Songs.css";
 import { toggleLikeSong, isSongLiked, addToQueue, playTrack, syncSongUpdateInPlaylists, syncSongDeleteInPlaylists } from "../utils/musicShared";
 import { readDataSync, writeDataSync } from '../utils/tauribridge';
+import ImageWithFallback from "../components/ImageWithFallback";
 
 const mockSongs = [];
 
@@ -419,20 +420,14 @@ export default function Songs() {
               key={song.id} 
               className="song-row"
               onClick={() => {
-                playTrack(song);
+                playTrack(song, sortedSongs);
                 showToast(`Playing "${song.title}"`);
               }}
             >
               <td className="song-index">{idx + 1}</td>
               <td>
                 <div className="song-info-col">
-                  {song.image ? (
-                    <img src={song.image} alt={song.title} className="song-thumbnail" />
-                  ) : (
-                    <div className="song-thumbnail" style={{ display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.05)" }}>
-                      <Music size={16} color="#a0a0a0" />
-                    </div>
-                  )}
+                  <ImageWithFallback src={song.image} alt={song.title} className="song-thumbnail" size={16} />
                   <div className="song-details">
                     <span className="song-name">{song.title}</span>
                     <span className="song-artist">{song.artist}</span>
@@ -596,10 +591,11 @@ export default function Songs() {
               <div className="modal-field" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "16px" }}>
                 <label className="modal-label" style={{ marginBottom: "8px" }}>Preview</label>
                 {editImage ? (
-                  <img 
+                  <ImageWithFallback 
                     src={editImage} 
                     alt="Preview" 
                     style={{ width: "120px", height: "120px", borderRadius: "8px", objectFit: "cover", border: "1px solid rgba(255,255,255,0.1)" }} 
+                    size={40}
                   />
                 ) : (
                   <div style={{ width: "120px", height: "120px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.05)" }}>

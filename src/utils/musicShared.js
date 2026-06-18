@@ -59,42 +59,197 @@ export const toggleLikeSong = (song) => {
   return isLiked;
 };
 
+export const getQueue = () => {
+  const saved = readDataSync("music_queue");
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch {
+      // ignore
+    }
+  }
+  return [];
+};
+
+export const setQueue = (queue) => {
+  writeDataSync("music_queue", JSON.stringify(queue));
+  window.dispatchEvent(new CustomEvent("queueChanged", { detail: queue }));
+};
+
 export const addToQueue = (song) => {
   if (!song) return;
   const title = song.title || song.name;
   if (!title) return;
 
-  const event = new CustomEvent("addToQueue", { 
-    detail: {
+  const allSongsStr = readDataSync("music_songs");
+  let allSongs = [];
+  if (allSongsStr) {
+    try {
+      allSongs = JSON.parse(allSongsStr);
+    } catch {}
+  }
+
+  const isAudioFile = (p) => {
+    if (!p) return false;
+    const lower = p.toLowerCase();
+    return lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac") || lower.endsWith(".mp4");
+  };
+
+  const currentQueue = getQueue();
+  let songsToAdd = [];
+
+  if (isAudioFile(song.path)) {
+    // Single song
+    songsToAdd.push({
       id: song.id || Date.now() + Math.random(),
       title: title,
       artist: song.artist || "Unknown Artist",
       album: song.album || "Unknown Album",
       duration: song.duration || "3:00",
       image: song.image || "",
-      path: song.path || ""
-    } 
-  });
-  window.dispatchEvent(event);
+      path: song.path
+    });
+  } else {
+    // Album or folder
+    const folderPath = song.path ? song.path.toLowerCase().replace(/\\/g, '/') : "";
+    const matchedSongs = song.path
+      ? allSongs.filter(s => s.path && s.path.toLowerCase().replace(/\\/g, '/').startsWith(folderPath))
+      : allSongs.filter(s => s.album && s.album.toLowerCase() === title.toLowerCase());
+
+    if (matchedSongs.length > 0) {
+      songsToAdd = matchedSongs.map(s => ({
+        id: s.id || Date.now() + Math.random(),
+        title: s.title,
+        artist: s.artist || "Unknown Artist",
+        album: s.album || "Unknown Album",
+        duration: s.duration || "3:00",
+        image: s.image || song.image || "",
+        path: s.path
+      }));
+    } else {
+      // Fallback
+      songsToAdd.push({
+        id: song.id || Date.now() + Math.random(),
+        title: title,
+        artist: song.artist || "Unknown Artist",
+        album: song.album || "Unknown Album",
+        duration: song.duration || "3:00",
+        image: song.image || "",
+        path: song.path || ""
+      });
+    }
+  }
+
+  let currentMax = currentQueue.length > 0 ? Math.max(...currentQueue.map(t => t.id)) : 0;
+  const tracksWithUniqueIds = songsToAdd.map(track => ({
+    ...track,
+    id: ++currentMax
+  }));
+
+  const updatedQueue = [...currentQueue, ...tracksWithUniqueIds];
+  setQueue(updatedQueue);
 };
 
-export const playTrack = (song) => {
+
+export const playTrack = (song, contextSongs = null) => {
   if (!song) return;
   const title = song.title || song.name;
   if (!title) return;
 
-  const current = {
-    id: song.id || Date.now(),
-    title: title,
-    artist: song.artist || "Unknown Artist",
-    album: song.album || "Unknown Album",
-    duration: song.duration || "3:00",
-    image: song.image || "",
-    path: song.path || "",
-    isLiked: isSongLiked(title)
+  const isAudioFile = (p) => {
+    if (!p) return false;
+    const lower = p.toLowerCase();
+    return lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac") || lower.endsWith(".mp4");
   };
-  
-  setCurrentTrack(current);
+
+  if (isAudioFile(song.path)) {
+    // Single song
+    const current = {
+      id: song.id || Date.now(),
+      title: title,
+      artist: song.artist || "Unknown Artist",
+      album: song.album || "Unknown Album",
+      duration: song.duration || "3:00",
+      image: song.image || "",
+      path: song.path,
+      isLiked: isSongLiked(title)
+    };
+    
+    setCurrentTrack(current);
+
+    if (contextSongs && Array.isArray(contextSongs)) {
+      const idx = contextSongs.findIndex(s => s.path === song.path);
+      if (idx !== -1) {
+        let currentMax = 0;
+        const remaining = contextSongs.slice(idx + 1).map(s => ({
+          id: ++currentMax,
+          title: s.title || s.name,
+          artist: s.artist || "Unknown Artist",
+          album: s.album || "Unknown Album",
+          duration: s.duration || "3:00",
+          image: s.image || "",
+          path: s.path
+        }));
+        setQueue(remaining);
+      }
+    }
+  } else {
+    // Container (Album or Folder)
+    const allSongsStr = readDataSync("music_songs");
+    let allSongs = [];
+    if (allSongsStr) {
+      try {
+        allSongs = JSON.parse(allSongsStr);
+      } catch {}
+    }
+
+    const folderPath = song.path ? song.path.toLowerCase().replace(/\\/g, '/') : "";
+    const matchedSongs = song.path
+      ? allSongs.filter(s => s.path && s.path.toLowerCase().replace(/\\/g, '/').startsWith(folderPath))
+      : allSongs.filter(s => s.album && s.album.toLowerCase() === title.toLowerCase());
+
+    if (matchedSongs.length > 0) {
+      const first = matchedSongs[0];
+      const current = {
+        id: first.id || Date.now(),
+        title: first.title,
+        artist: first.artist || "Unknown Artist",
+        album: first.album || "Unknown Album",
+        duration: first.duration || "3:00",
+        image: first.image || song.image || "",
+        path: first.path,
+        isLiked: isSongLiked(first.title)
+      };
+      
+      setCurrentTrack(current);
+
+      let currentMax = 0;
+      const remaining = matchedSongs.slice(1).map(s => ({
+        id: ++currentMax,
+        title: s.title,
+        artist: s.artist || "Unknown Artist",
+        album: s.album || "Unknown Album",
+        duration: s.duration || "3:00",
+        image: s.image || song.image || "",
+        path: s.path
+      }));
+      setQueue(remaining);
+    } else {
+      // Fallback
+      const current = {
+        id: song.id || Date.now(),
+        title: title,
+        artist: song.artist || "Unknown Artist",
+        album: song.album || "Unknown Album",
+        duration: song.duration || "3:00",
+        image: song.image || "",
+        path: song.path || "",
+        isLiked: isSongLiked(title)
+      };
+      
+      setCurrentTrack(current);
+    }
+  }
 };
 
 export const getCurrentTrack = () => {

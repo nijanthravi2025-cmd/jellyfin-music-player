@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Play, ListMusic, MoreVertical, Edit3, Trash2, Clipboard, Check, X, Plus, Heart, Clock, Music } from "lucide-react";
+import { Play, ListMusic, MoreVertical, Edit3, Trash2, Clipboard, Check, X, Plus, Heart, Clock, Music, FolderPlus, Image } from "lucide-react";
 import "./Home.css"; // Reuse card-grid, album-card styles
 import "./Songs.css"; // Reuse toast-banner, context menus, and modal styles
-import { playTrack, toggleLikeSong, isSongLiked } from "../utils/musicShared";
+import { playTrack, toggleLikeSong, isSongLiked, addToQueue, syncSongUpdateInPlaylists, syncSongDeleteInPlaylists } from "../utils/musicShared";
 import { readDataSync, writeDataSync, removeDataSync } from '../utils/tauribridge';
+import ImageWithFallback from "../components/ImageWithFallback";
 
 const defaultImages = [
   "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?auto=format&fit=crop&q=80&w=250&h=250",
@@ -32,6 +33,20 @@ export default function Playlists() {
 
   const [toast, setToast] = useState("");
   const activeMenuRef = useRef(null);
+
+  // Song Options Menu & Modal States
+  const [activeSongMenuId, setActiveSongMenuId] = useState(null);
+  const activeSongMenuRef = useRef(null);
+
+  const [isSongRenameOpen, setIsSongRenameOpen] = useState(false);
+  const [songRenameItem, setSongRenameItem] = useState(null);
+  const [songEditTitle, setSongEditTitle] = useState("");
+  const [songEditArtist, setSongEditArtist] = useState("");
+  const [songEditAlbum, setSongEditAlbum] = useState("");
+
+  const [isSongCoverOpen, setIsSongCoverOpen] = useState(false);
+  const [songCoverItem, setSongCoverItem] = useState(null);
+  const [songEditImage, setSongEditImage] = useState("");
 
   // Load playlists from localStorage
   const loadPlaylists = () => {
@@ -152,6 +167,9 @@ export default function Playlists() {
       if (activeMenuRef.current && !activeMenuRef.current.contains(event.target)) {
         setActiveMenuId(null);
       }
+      if (activeSongMenuRef.current && !activeSongMenuRef.current.contains(event.target)) {
+        setActiveSongMenuId(null);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -253,6 +271,256 @@ export default function Playlists() {
     }
   };
 
+  const handleSongRenameClick = (song) => {
+    setSongRenameItem(song);
+    setSongEditTitle(song.title);
+    setSongEditArtist(song.artist);
+    setSongEditAlbum(song.album);
+    setIsSongRenameOpen(true);
+    setActiveSongMenuId(null);
+  };
+
+  const handleSaveSongRename = () => {
+    if (!songRenameItem || !songEditTitle.trim()) return;
+    const trimmedTitle = songEditTitle.trim();
+    const trimmedArtist = songEditArtist.trim();
+    const trimmedAlbum = songEditAlbum.trim();
+
+    let changes = [];
+    if (songRenameItem.title !== trimmedTitle) changes.push(`Song name changed to "${trimmedTitle}"`);
+    if (songRenameItem.artist !== trimmedArtist) changes.push(`Artist name changed to "${trimmedArtist}"`);
+    if (songRenameItem.album !== trimmedAlbum) changes.push(`Album name changed to "${trimmedAlbum}"`);
+
+    // 1. Update in library (music_songs)
+    let librarySongs = [];
+    const savedSongs = readDataSync("music_songs");
+    if (savedSongs) {
+      try { librarySongs = JSON.parse(savedSongs); } catch (e) {}
+    }
+    const updatedSongs = librarySongs.map(s => s.id === songRenameItem.id ? {
+      ...s,
+      title: trimmedTitle,
+      artist: trimmedArtist,
+      album: trimmedAlbum
+    } : s);
+    writeDataSync("music_songs", JSON.stringify(updatedSongs));
+    
+    // 2. Dispatch events so other pages sync
+    window.dispatchEvent(new CustomEvent("songsChanged"));
+
+    // 3. Sync changes to all playlists
+    const updatedSong = updatedSongs.find(s => s.id === songRenameItem.id) || {
+      ...songRenameItem,
+      title: trimmedTitle,
+      artist: trimmedArtist,
+      album: trimmedAlbum
+    };
+    syncSongUpdateInPlaylists(updatedSong);
+
+    // 4. Sync current playing track
+    const savedCurrent = readDataSync("music_current_track");
+    if (savedCurrent) {
+      try {
+        const currentTrack = JSON.parse(savedCurrent);
+        if (currentTrack.title.toLowerCase() === songRenameItem.title.toLowerCase()) {
+          const updatedTrack = { ...currentTrack, title: trimmedTitle, artist: trimmedArtist, album: trimmedAlbum };
+          writeDataSync("music_current_track", JSON.stringify(updatedTrack));
+          window.dispatchEvent(new CustomEvent("currentTrackChanged", { detail: updatedTrack }));
+        }
+      } catch (e) {}
+    }
+
+    // 5. Sync liked songs list
+    const savedLiked = readDataSync("music_liked_songs");
+    if (savedLiked) {
+      try {
+        const likedList = JSON.parse(savedLiked);
+        const updatedLiked = likedList.map(song => song.title.toLowerCase() === songRenameItem.title.toLowerCase() ? {
+          ...song,
+          title: trimmedTitle,
+          artist: trimmedArtist,
+          album: trimmedAlbum
+        } : song);
+        writeDataSync("music_liked_songs", JSON.stringify(updatedLiked));
+        window.dispatchEvent(new CustomEvent("likedSongsChanged", { detail: updatedLiked }));
+      } catch (e) {}
+    }
+
+    // 6. Reload current playlist track list to reflect rename immediately
+    if (selectedPlaylist) {
+      const savedPlaylistSongs = readDataSync(`music_playlist_songs_${selectedPlaylist.title}`);
+      if (savedPlaylistSongs) {
+        try {
+          setPlaylistTracks(JSON.parse(savedPlaylistSongs));
+        } catch (e) {}
+      }
+    }
+
+    setIsSongRenameOpen(false);
+    setSongRenameItem(null);
+    if (changes.length > 0) {
+      showToast(changes.join(", "));
+    } else {
+      showToast("No details were changed.");
+    }
+  };
+
+  const handleSongCoverClick = (song) => {
+    setSongCoverItem(song);
+    setSongEditImage(song.image || "");
+    setIsSongCoverOpen(true);
+    setActiveSongMenuId(null);
+  };
+
+  const handleSaveSongCover = () => {
+    if (!songCoverItem) return;
+    const newImage = songEditImage.trim();
+
+    // 1. Update in library (music_songs)
+    let librarySongs = [];
+    const savedSongs = readDataSync("music_songs");
+    if (savedSongs) {
+      try { librarySongs = JSON.parse(savedSongs); } catch (e) {}
+    }
+    const updatedSongs = librarySongs.map(s => s.id === songCoverItem.id ? {
+      ...s,
+      image: newImage,
+      isCustomImage: true
+    } : s);
+    writeDataSync("music_songs", JSON.stringify(updatedSongs));
+    window.dispatchEvent(new CustomEvent("songsChanged"));
+
+    // 2. Sync to other playlists
+    const updatedSong = updatedSongs.find(s => s.id === songCoverItem.id) || {
+      ...songCoverItem,
+      image: newImage,
+      isCustomImage: true
+    };
+    syncSongUpdateInPlaylists(updatedSong);
+
+    // 3. Update parent album cover
+    if (songCoverItem.album) {
+      let allAlbums = [];
+      const savedAlbums = readDataSync("music_albums");
+      if (savedAlbums) {
+        try {
+          allAlbums = JSON.parse(savedAlbums);
+          const updatedAlbums = allAlbums.map(album => {
+            if (album.title.toLowerCase() === songCoverItem.album.toLowerCase()) {
+              return { ...album, image: newImage, isCustomImage: true };
+            }
+            return album;
+          });
+          writeDataSync("music_albums", JSON.stringify(updatedAlbums));
+          window.dispatchEvent(new CustomEvent("albumsChanged"));
+        } catch (e) {}
+      }
+    }
+
+    // 4. Update current playing track
+    const savedCurrent = readDataSync("music_current_track");
+    if (savedCurrent) {
+      try {
+        const currentTrack = JSON.parse(savedCurrent);
+        if (currentTrack.title.toLowerCase() === songCoverItem.title.toLowerCase()) {
+          const updatedTrack = { ...currentTrack, image: newImage, isCustomImage: true };
+          writeDataSync("music_current_track", JSON.stringify(updatedTrack));
+          window.dispatchEvent(new CustomEvent("currentTrackChanged", { detail: updatedTrack }));
+        }
+      } catch (e) {}
+    }
+
+    // 5. Update liked songs list
+    const savedLiked = readDataSync("music_liked_songs");
+    if (savedLiked) {
+      try {
+        const likedList = JSON.parse(savedLiked);
+        const updatedLiked = likedList.map(song => song.title.toLowerCase() === songCoverItem.title.toLowerCase() ? {
+          ...song,
+          image: newImage,
+          isCustomImage: true
+        } : song);
+        writeDataSync("music_liked_songs", JSON.stringify(updatedLiked));
+        window.dispatchEvent(new CustomEvent("likedSongsChanged", { detail: updatedLiked }));
+      } catch (e) {}
+    }
+
+    // 6. Reload current playlist track list
+    if (selectedPlaylist) {
+      const savedPlaylistSongs = readDataSync(`music_playlist_songs_${selectedPlaylist.title}`);
+      if (savedPlaylistSongs) {
+        try {
+          setPlaylistTracks(JSON.parse(savedPlaylistSongs));
+        } catch (e) {}
+      }
+    }
+
+    setIsSongCoverOpen(false);
+    setSongCoverItem(null);
+    showToast("Song cover art updated.");
+  };
+
+  const handleDeleteSongFromLibrary = (song) => {
+    if (!window.confirm(`Are you sure you want to delete "${song.title}" from your library entirely? This will also remove it from all playlists.`)) {
+      return;
+    }
+    
+    // 1. Remove from library (music_songs)
+    let librarySongs = [];
+    const savedSongs = readDataSync("music_songs");
+    if (savedSongs) {
+      try { librarySongs = JSON.parse(savedSongs); } catch (e) {}
+    }
+    const updatedSongs = librarySongs.filter(s => s.id !== song.id);
+    writeDataSync("music_songs", JSON.stringify(updatedSongs));
+    window.dispatchEvent(new CustomEvent("songsChanged"));
+
+    // 2. Remove from all playlists
+    syncSongDeleteInPlaylists(song.id);
+
+    // 3. Reload current playlist track list
+    if (selectedPlaylist) {
+      const savedPlaylistSongs = readDataSync(`music_playlist_songs_${selectedPlaylist.title}`);
+      if (savedPlaylistSongs) {
+        try {
+          setPlaylistTracks(JSON.parse(savedPlaylistSongs));
+        } catch (e) {}
+      }
+    }
+
+    setActiveSongMenuId(null);
+    showToast(`"${song.title}" deleted from library.`);
+  };
+
+  const handleViewLocationSong = (song) => {
+    setActiveSongMenuId(null);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(song.path);
+      showToast(`Copied location: ${song.path}`);
+    } else {
+      showToast(`Location: ${song.path}`);
+    }
+  };
+
+  const handleAddToOtherPlaylist = (song, targetPlaylistName) => {
+    setActiveSongMenuId(null);
+    const saved = readDataSync(`music_playlist_songs_${targetPlaylistName}`);
+    let playlistSongs = [];
+    if (saved) {
+      try { playlistSongs = JSON.parse(saved); } catch (e) {}
+    }
+
+    if (playlistSongs.some(s => s.id === song.id)) {
+      showToast(`"${song.title}" is already in "${targetPlaylistName}"`);
+      return;
+    }
+
+    const updated = [...playlistSongs, song];
+    writeDataSync(`music_playlist_songs_${targetPlaylistName}`, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent("playlistsChanged"));
+    showToast(`Added "${song.title}" to "${targetPlaylistName}"`);
+  };
+
   const handleCreatePlaylistBtn = () => {
     window.dispatchEvent(new CustomEvent("open-create-playlist-modal"));
   };
@@ -296,7 +564,7 @@ export default function Playlists() {
               style={{ display: "flex", flexDirection: "column", position: "relative", cursor: "pointer" }}
             >
               <div className="card-image-container">
-                <img src={playlist.image} alt={playlist.title} className="card-image" />
+                <ImageWithFallback src={playlist.image} alt={playlist.title} className="card-image" />
                 <button 
                   className="card-play-btn"
                   onClick={(e) => {
@@ -306,7 +574,7 @@ export default function Playlists() {
                       try {
                         const tracks = JSON.parse(savedSongs);
                         if (tracks.length > 0) {
-                          playTrack(tracks[0]);
+                          playTrack(tracks[0], tracks);
                           showToast(`Playing playlist "${playlist.title}"`);
                         } else {
                           showToast("Playlist is empty");
@@ -496,6 +764,165 @@ export default function Playlists() {
         </div>
       )}
 
+      {/* EDIT SONG DETAILS POPUP MODAL DIALOG */}
+      {isSongRenameOpen && (
+        <div className="modal-backdrop" onClick={() => setIsSongRenameOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Song Details</h3>
+              <button className="close-btn" onClick={() => setIsSongRenameOpen(false)} style={{ background: "none", border: "none", color: "#a0a0a0", cursor: "pointer" }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="modal-field">
+                <label className="modal-label">Title</label>
+                <input
+                  type="text"
+                  className="modal-input"
+                  value={songEditTitle}
+                  onChange={(e) => setSongEditTitle(e.target.value)}
+                  placeholder="Song Title"
+                  maxLength={50}
+                  autoFocus
+                />
+              </div>
+              <div className="modal-field" style={{ marginTop: "12px" }}>
+                <label className="modal-label">Artist</label>
+                <input
+                  type="text"
+                  className="modal-input"
+                  value={songEditArtist}
+                  onChange={(e) => setSongEditArtist(e.target.value)}
+                  placeholder="Artist"
+                  maxLength={50}
+                />
+              </div>
+              <div className="modal-field" style={{ marginTop: "12px" }}>
+                <label className="modal-label">Album</label>
+                <input
+                  type="text"
+                  className="modal-input"
+                  value={songEditAlbum}
+                  onChange={(e) => setSongEditAlbum(e.target.value)}
+                  placeholder="Album"
+                  maxLength={50}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="modal-btn cancel" onClick={() => setIsSongRenameOpen(false)}>Cancel</button>
+              <button className="modal-btn save" onClick={handleSaveSongRename} disabled={!songEditTitle.trim()}>Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT SONG COVER POPUP MODAL DIALOG */}
+      {isSongCoverOpen && (
+        <div className="modal-backdrop" onClick={() => setIsSongCoverOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Song Cover Art</h3>
+              <button className="close-btn" onClick={() => setIsSongCoverOpen(false)} style={{ background: "none", border: "none", color: "#a0a0a0", cursor: "pointer" }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="modal-field" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "16px" }}>
+                <label className="modal-label" style={{ marginBottom: "8px" }}>Cover Art Preview</label>
+                {songEditImage ? (
+                  <img 
+                    src={songEditImage} 
+                    alt="Song Cover Preview" 
+                    style={{ width: "120px", height: "120px", borderRadius: "8px", objectFit: "cover", border: "1px solid rgba(255,255,255,0.1)" }} 
+                  />
+                ) : (
+                  <div style={{ width: "120px", height: "120px", borderRadius: "8px", border: "1px dashed rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.03)" }}>
+                    <Music size={40} color="#a0a0a0" />
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-field">
+                <label className="modal-label">Upload Custom Cover</label>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setSongEditImage(reader.result);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    style={{ display: "none" }}
+                    id="song-cover-pic-input"
+                  />
+                  <label 
+                    htmlFor="song-cover-pic-input" 
+                    className="modal-btn" 
+                    style={{ 
+                      display: "inline-block", 
+                      padding: "8px 16px", 
+                      backgroundColor: "rgba(255,255,255,0.08)", 
+                      borderRadius: "6px", 
+                      cursor: "pointer", 
+                      textAlign: "center",
+                      border: "1px solid rgba(255,255,255,0.15)",
+                      fontFamily: "inherit",
+                      fontSize: "13px",
+                      fontWeight: "500",
+                      transition: "background-color 0.2s"
+                    }}
+                    onMouseOver={(e) => e.target.style.backgroundColor = "rgba(255,255,255,0.15)"}
+                    onMouseOut={(e) => e.target.style.backgroundColor = "rgba(255,255,255,0.08)"}
+                  >
+                    Choose File
+                  </label>
+                  {songEditImage && (
+                    <button
+                      type="button"
+                      className="modal-btn delete-cover-btn"
+                      onClick={() => setSongEditImage("")}
+                      style={{
+                        padding: "8px 16px",
+                        backgroundColor: "rgba(235, 77, 75, 0.1)",
+                        color: "#eb4d4b",
+                        border: "1px solid rgba(235, 77, 75, 0.2)",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        fontWeight: "500",
+                        transition: "all 0.2s"
+                      }}
+                      onMouseOver={(e) => {
+                        e.target.style.backgroundColor = "rgba(235, 77, 75, 0.2)";
+                        e.target.style.borderColor = "rgba(235, 77, 75, 0.4)";
+                      }}
+                      onMouseOut={(e) => {
+                        e.target.style.backgroundColor = "rgba(235, 77, 75, 0.1)";
+                        e.target.style.borderColor = "rgba(235, 77, 75, 0.2)";
+                      }}
+                    >
+                      Delete Cover
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="modal-btn cancel" onClick={() => setIsSongCoverOpen(false)}>Cancel</button>
+              <button className="modal-btn save" onClick={handleSaveSongCover}>Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* PLAYLIST DETAIL POPUP MODAL OVERLAY */}
       {selectedPlaylist && (
         <div className="modal-backdrop" onClick={() => setSelectedPlaylist(null)}>
@@ -537,7 +964,7 @@ export default function Playlists() {
                 <X size={18} />
               </button>
               
-              <img 
+              <ImageWithFallback 
                 src={selectedPlaylist.image} 
                 alt={selectedPlaylist.title} 
                 style={{ width: "110px", height: "110px", borderRadius: "8px", objectFit: "cover", border: "2px solid rgba(255,255,255,0.2)" }} 
@@ -576,7 +1003,7 @@ export default function Playlists() {
                         key={song.id} 
                         className="song-row"
                         onClick={() => {
-                          playTrack(song);
+                          playTrack(song, playlistTracks);
                           showToast(`Playing "${song.title}"`);
                         }}
                         style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}
@@ -584,13 +1011,7 @@ export default function Playlists() {
                         <td className="song-index" style={{ color: "#a0a0a0" }}>{idx + 1}</td>
                         <td>
                           <div className="song-info-col">
-                            {song.image ? (
-                              <img src={song.image} alt={song.title} className="song-thumbnail" />
-                            ) : (
-                              <div style={{ width: "40px", height: "40px", borderRadius: "4px", backgroundColor: "#242424", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                <Music size={16} color="#a0a0a0" />
-                              </div>
-                            )}
+                            <ImageWithFallback src={song.image} alt={song.title} className="song-thumbnail" size={16} />
                             <div className="song-details">
                               <span className="song-name" style={{ color: "#fff", fontWeight: "600" }}>{song.title}</span>
                               <span className="song-artist" style={{ color: "#a0a0a0", fontSize: "12px" }}>{song.artist}</span>
@@ -623,30 +1044,85 @@ export default function Playlists() {
                               <Heart size={15} fill={isSongLiked(song.title) ? "#6c5ce7" : "none"} />
                             </button>
                             
-                            <button 
-                              className="row-action-btn delete-song-btn" 
-                              title="Remove from playlist"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveSong(song.id);
-                              }}
-                              style={{
-                                background: "none",
-                                border: "none",
-                                cursor: "pointer",
-                                color: "#eb4d4b",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                padding: "4px",
-                                borderRadius: "4px",
-                                transition: "background-color 0.2s"
-                              }}
-                              onMouseOver={(e) => e.target.style.backgroundColor = "rgba(235, 77, 75, 0.15)"}
-                              onMouseOut={(e) => e.target.style.backgroundColor = "transparent"}
-                            >
-                              <Trash2 size={15} />
-                            </button>
+                            <div className="menu-wrapper" ref={activeSongMenuId === song.id ? activeSongMenuRef : null}>
+                              <button 
+                                className="row-action-btn" 
+                                title="Options"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveSongMenuId(activeSongMenuId === song.id ? null : song.id);
+                                }}
+                                style={{
+                                  background: "none",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  padding: "4px",
+                                  borderRadius: "4px",
+                                  transition: "background-color 0.2s",
+                                  opacity: activeSongMenuId === song.id ? 1 : undefined
+                                }}
+                              >
+                                <MoreVertical size={15} />
+                              </button>
+                              {activeSongMenuId === song.id && (
+                                <div className="context-menu" onClick={(e) => e.stopPropagation()}>
+                                  <button className="context-menu-item" onClick={() => handleSongRenameClick(song)}>
+                                    <Edit3 size={14} />
+                                    Rename
+                                  </button>
+                                  <button className="context-menu-item" onClick={() => handleSongCoverClick(song)}>
+                                    <Image size={14} />
+                                    Change Album Cover
+                                  </button>
+                                  <button className="context-menu-item" onClick={() => handleRemoveSong(song.id)}>
+                                    <Trash2 size={14} style={{ color: "#eb4d4b" }} />
+                                    Remove from Playlist
+                                  </button>
+                                  <button className="context-menu-item" onClick={() => handleDeleteSongFromLibrary(song)}>
+                                    <Trash2 size={14} style={{ color: "#eb4d4b" }} />
+                                    Delete from Library
+                                  </button>
+                                  <button className="context-menu-item" onClick={() => handleViewLocationSong(song)}>
+                                    <Clipboard size={14} />
+                                    View Location
+                                  </button>
+                                  <button 
+                                    className="context-menu-item" 
+                                    onClick={() => {
+                                      addToQueue(song);
+                                      setActiveSongMenuId(null);
+                                      showToast(`Added "${song.title}" to queue.`);
+                                    }}
+                                  >
+                                    <ListMusic size={14} />
+                                    Add to Queue
+                                  </button>
+                                  <div className="context-menu-item">
+                                    <FolderPlus size={14} />
+                                    Add to Playlist
+                                    <div className="context-submenu">
+                                      {playlistNames.filter(name => name !== selectedPlaylist.title).map((name, pIdx) => (
+                                        <button
+                                          key={pIdx}
+                                          className="context-menu-item"
+                                          onClick={() => handleAddToOtherPlaylist(song, name)}
+                                        >
+                                          {name}
+                                        </button>
+                                      ))}
+                                      {playlistNames.filter(name => name !== selectedPlaylist.title).length === 0 && (
+                                        <div className="context-menu-item" style={{ color: "#a0a0a0", fontSize: "12px", fontStyle: "italic", cursor: "default" }}>
+                                          No other playlists
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </td>
                       </tr>

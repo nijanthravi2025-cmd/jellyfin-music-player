@@ -15,10 +15,10 @@ import {
   ChevronDown,
 } from "lucide-react";
 import "./FloatingDock.css";
-import { getCurrentTrack, toggleLikeSong, playTrack } from "../utils/musicShared";
-import { getAssetUrl, isTauri } from "../utils/tauribridge";
-import { readDataSync } from "../utils/tauribridge";
+import { getCurrentTrack, toggleLikeSong, playTrack, getQueue, setQueue } from "../utils/musicShared";
+import { getAssetUrl, isTauri, readDataSync } from "../utils/tauribridge";
 import RightQueue from "./RightQueue";
+import ImageWithFallback from "./ImageWithFallback";
 
 // Accept toggleQueue and isQueueOpen as props from Layout
 export default function FloatingDock({ toggleQueue, isQueueOpen }) {
@@ -152,6 +152,23 @@ export default function FloatingDock({ toggleQueue, isQueueOpen }) {
   }, []);
 
   const handleSkipNext = useCallback((autoTrigger = false) => {
+    const currentQueue = getQueue();
+    if (currentQueue && currentQueue.length > 0) {
+      if (isShuffle) {
+        const randomIdx = Math.floor(Math.random() * currentQueue.length);
+        const nextTrack = currentQueue[randomIdx];
+        const updatedQueue = currentQueue.filter((_, idx) => idx !== randomIdx);
+        setQueue(updatedQueue);
+        playTrack(nextTrack);
+      } else {
+        const nextTrack = currentQueue[0];
+        const updatedQueue = currentQueue.slice(1);
+        setQueue(updatedQueue);
+        playTrack(nextTrack);
+      }
+      return;
+    }
+
     const allSongs = getAllSongs();
     if (allSongs.length === 0) return;
 
@@ -185,7 +202,7 @@ export default function FloatingDock({ toggleQueue, isQueueOpen }) {
     } else {
       playTrack(allSongs[0]);
     }
-  }, [currentTrack, isShuffle, repeatMode, getAllSongs]);
+  }, [currentTrack, isShuffle, repeatMode, getAllSongs, getQueue, setQueue]);
 
   const handleSkipPrev = useCallback(() => {
     // If we're more than 3 seconds in, restart the current track
@@ -369,15 +386,14 @@ export default function FloatingDock({ toggleQueue, isQueueOpen }) {
               onClick={() => setIsFullScreen(true)}
               title="Open Fullscreen Player"
             >
-              {currentTrack?.image ? (
-                <img 
-                  src={currentTrack.image} 
-                  alt={currentTrack.title} 
-                  style={{ width: "24px", height: "24px", borderRadius: "4px", objectFit: "cover" }} 
+              <div style={{ width: "24px", height: "24px", borderRadius: "4px", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <ImageWithFallback 
+                  src={currentTrack?.image} 
+                  alt={currentTrack?.title || "Music"} 
+                  style={{ width: "24px", height: "24px" }} 
+                  size={14}
                 />
-              ) : (
-                <Music className="icons" color="white" size={24} />
-              )}
+              </div>
               <div className="tooltip track-tooltip">
                 <span className="track-title">{currentTrack ? currentTrack.title : "Not Playing"}</span>
                 <span className="track-subtitle">{currentTrack ? currentTrack.artist : "Select a track"}</span>
@@ -517,7 +533,7 @@ export default function FloatingDock({ toggleQueue, isQueueOpen }) {
         <div 
           className="fullscreen-ambient-glow" 
           style={{
-            backgroundImage: currentTrack?.image ? `url(${currentTrack.image})` : "none"
+            backgroundImage: currentTrack?.image ? `url(${getAssetUrl(currentTrack.image)})` : "none"
           }}
         ></div>
         
@@ -534,17 +550,13 @@ export default function FloatingDock({ toggleQueue, isQueueOpen }) {
 
             {/* Large Album Art with expansion container */}
             <div className="fullscreen-art-container">
-              {currentTrack?.image ? (
-                <img 
-                  src={currentTrack.image} 
-                  alt={currentTrack.title} 
-                  className="fullscreen-album-art" 
-                />
-              ) : (
-                <div className="fullscreen-placeholder-art">
-                  <Music size={120} color="#a0a0a0" />
-                </div>
-              )}
+              <ImageWithFallback 
+                src={currentTrack?.image} 
+                alt={currentTrack?.title || "Music"} 
+                className="fullscreen-album-art" 
+                fallbackClassName="fullscreen-placeholder-art"
+                size={120}
+              />
             </div>
 
             {/* Metadata Block: Title, Artist, Heart (Like) button */}

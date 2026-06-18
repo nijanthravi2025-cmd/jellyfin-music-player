@@ -4,6 +4,7 @@ import "./Home.css";
 import "./Songs.css"; // Reuse context menu styles
 import { addToQueue, playTrack } from "../utils/musicShared";
 import { readDataSync, writeDataSync } from '../utils/tauribridge';
+import ImageWithFallback from "../components/ImageWithFallback";
 
 const defaultMockAlbums = [];
 
@@ -298,13 +299,7 @@ export default function Albums() {
           {albums.map((album) => (
             <div key={album.id} className="album-card" style={{ display: "flex", flexDirection: "column" }}>
               <div className="card-image-container">
-                {album.image ? (
-                  <img src={album.image} alt={album.title} className="card-image" />
-                ) : (
-                  <div className="card-image" style={{ display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.05)", height: "100%" }}>
-                    <Music size={48} color="#a0a0a0" />
-                  </div>
-                )}
+                <ImageWithFallback src={album.image} alt={album.title} className="card-image" />
                 <button 
                   className="card-play-btn"
                   onClick={() => {
@@ -458,10 +453,11 @@ export default function Albums() {
               <div className="modal-field" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "16px" }}>
                 <label className="modal-label" style={{ marginBottom: "8px" }}>Preview</label>
                 {editImage ? (
-                  <img 
+                  <ImageWithFallback 
                     src={editImage} 
                     alt="Preview" 
                     style={{ width: "120px", height: "120px", borderRadius: "8px", objectFit: "cover", border: "1px solid rgba(255,255,255,0.1)" }} 
+                    size={40}
                   />
                 ) : (
                   <div style={{ width: "120px", height: "120px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.05)" }}>

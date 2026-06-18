@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { X, Search, Music, Check, Plus } from "lucide-react";
 import "./CreatePlaylistModal.css";
 import { readDataSync, writeDataSync } from '../utils/tauribridge';
+import ImageWithFallback from "./ImageWithFallback";
 
 const mockSongs = [];
 
@@ -205,7 +206,7 @@ export default function CreatePlaylistModal() {
                       onClick={() => toggleSongSelection(song.id)}
                     >
                       <div className="song-checklist-info">
-                        <img src={song.image} alt={song.title} className="song-checklist-img" />
+                        <ImageWithFallback src={song.image} alt={song.title} className="song-checklist-img" size={16} />
                         <div className="song-checklist-details">
                           <span className="song-checklist-name">{song.title}</span>
                           <span className="song-checklist-artist">{song.artist}</span>
