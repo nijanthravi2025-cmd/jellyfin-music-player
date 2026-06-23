@@ -24,7 +24,7 @@ import {
 import SearchBar from "./SearchBar";
 import "./TopBar.css";
 import "./ProfileSelect.css"; // Reuse profile modal styles
-import { readDataSync, writeDataSync, removeDataSync, scanMusicDirectory, getAudioMetadata, selectDirectory } from '../utils/tauribridge';
+import { readDataSync, writeDataSync, removeDataSync, scanMusicDirectory, getAudioMetadata, selectDirectory, scanJellyfinServer } from '../utils/tauribridge';
 import ImageCropperModal from "./ImageCropperModal";
 
 export default function TopBar() {
@@ -228,7 +228,26 @@ export default function TopBar() {
       let allScannedSongs = [];
 
       for (const dir of targetDirs) {
-        if (dir.type === "jellyfin") continue;
+        if (dir.type === "jellyfin") {
+          try {
+            const jellyfinSongs = await scanJellyfinServer(dir.url, dir.username, dir.password);
+            for (const song of jellyfinSongs) {
+              allScannedSongs.push({
+                id: song.id || song.path,
+                title: song.title,
+                artist: song.artist,
+                album: song.album,
+                duration: song.duration_formatted || "0:00",
+                duration_secs: song.duration_secs || 0,
+                image: song.cover_art_base64 || "",
+                path: song.path
+              });
+            }
+          } catch (err) {
+            console.error("Failed to scan Jellyfin server:", dir.name, err);
+          }
+          continue;
+        }
         try {
           const files = await scanMusicDirectory(dir.path);
           for (const file of files) {
@@ -291,13 +310,15 @@ export default function TopBar() {
         const albumName = song.album || "Unknown Album";
         const albumKey = `${albumName.toLowerCase()}::${(song.artist || "").toLowerCase()}`;
         if (!albumMap[albumKey]) {
+          const isJellyfin = song.path.startsWith("http://") || song.path.startsWith("https://");
+          const albumPath = isJellyfin ? "jellyfin-library" : song.path.substring(0, song.path.lastIndexOf("/"));
           albumMap[albumKey] = {
             id: albumKey,
             title: albumName,
             artist: song.artist || "Unknown Artist",
             year: "Unknown",
             image: song.image || "",
-            path: song.path.substring(0, song.path.lastIndexOf("/"))
+            path: albumPath
           };
         } else if (!albumMap[albumKey].image && song.image) {
           albumMap[albumKey].image = song.image;
@@ -371,6 +392,26 @@ export default function TopBar() {
       // Also derive drive albums for the Home page
       const driveMap = {};
       allScannedSongs.forEach(song => {
+        const isJellyfin = song.path.startsWith("http://") || song.path.startsWith("https://");
+        if (isJellyfin) {
+          const folderPath = "jellyfin-library";
+          const folderName = "Jellyfin Library";
+          if (!driveMap[folderPath]) {
+            driveMap[folderPath] = {
+              id: folderPath,
+              title: folderName,
+              artist: "Jellyfin Server",
+              image: song.image || "",
+              path: folderPath,
+              dateAdded: "Connected library",
+              timestamp: Date.now()
+            };
+          } else if (!driveMap[folderPath].image && song.image) {
+            driveMap[folderPath].image = song.image;
+          }
+          return;
+        }
+
         const folderPath = song.path.substring(0, song.path.lastIndexOf("/"));
         const folderName = folderPath.substring(folderPath.lastIndexOf("/") + 1);
         if (!driveMap[folderPath]) {

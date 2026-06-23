@@ -11,6 +11,7 @@ use walkdir::WalkDir;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AudioMetadata {
+    pub id: Option<String>,
     pub title: String,
     pub artist: String,
     pub album: String,
@@ -146,6 +147,7 @@ fn get_audio_metadata(path: String) -> Result<AudioMetadata, String> {
     }
 
     Ok(AudioMetadata {
+        id: None,
         title,
         artist,
         album,
@@ -240,6 +242,182 @@ fn file_exists(path: String) -> bool {
     Path::new(&path).exists()
 }
 
+// ── Jellyfin Integration ─────────────────────────────────────────────────────
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
+struct JellyfinAuthResult {
+    access_token: String,
+    user: JellyfinUser,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
+struct JellyfinUser {
+    id: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
+struct JellyfinItemResponse {
+    items: Vec<JellyfinItem>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
+struct JellyfinItem {
+    id: String,
+    name: String,
+    album: Option<String>,
+    artists: Option<Vec<String>>,
+    run_time_ticks: Option<i64>,
+    image_tags: Option<std::collections::HashMap<String, String>>,
+}
+
+/// Authenticate with a Jellyfin server and scan all audio files
+#[tauri::command]
+async fn jellyfin_scan_server(
+    url: String,
+    username: String,
+    password: Option<String>,
+) -> Result<Vec<AudioMetadata>, String> {
+    // 1. Build Client
+    let client = reqwest::Client::builder()
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    // 2. Prepare auth payload
+    let pwd = password.unwrap_or_default();
+    let auth_payload = serde_json::json!({
+        "Username": username,
+        "Pw": pwd,
+    });
+
+    let server_url = if url.ends_with('/') {
+        url.trim_end_matches('/').to_string()
+    } else {
+        url
+    };
+
+    let auth_url = format!("{}/Users/AuthenticateByName", server_url);
+
+    // X-Emby-Authorization header
+    let auth_header_val = "MediaBrowser Client=\"Tauri Player\", Device=\"Desktop\", DeviceId=\"tauri-player\", Version=\"0.1.1\"";
+
+    let auth_response = client
+        .post(&auth_url)
+        .header("X-Emby-Authorization", auth_header_val)
+        .json(&auth_payload)
+        .send()
+        .await
+        .map_err(|e| format!("Authentication request failed: {}", e))?;
+
+    if !auth_response.status().is_success() {
+        let status = auth_response.status();
+        let err_text = auth_response.text().await.unwrap_or_default();
+        return Err(format!("Jellyfin login failed ({}): {}", status, err_text));
+    }
+
+    let auth_result: JellyfinAuthResult = auth_response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse authentication response: {}", e))?;
+
+    let token = auth_result.access_token;
+    let user_id = auth_result.user.id;
+
+    // 3. Query Audio Items
+    let items_url = format!("{}/Users/{}/Items", server_url, user_id);
+    let auth_header_with_token = format!(
+        "MediaBrowser Client=\"Tauri Player\", Device=\"Desktop\", DeviceId=\"tauri-player\", Version=\"0.1.1\", Token=\"{}\"",
+        token
+    );
+
+    let items_response = client
+        .get(&items_url)
+        .header("X-Emby-Authorization", &auth_header_with_token)
+        .query(&[
+            ("recursive", "true"),
+            ("includeItemTypes", "Audio"),
+            ("fields", "MediaSources,RunTimeTicks,Artists,Album,ImageTags"),
+        ])
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch items from server: {}", e))?;
+
+    if !items_response.status().is_success() {
+        let status = items_response.status();
+        let err_text = items_response.text().await.unwrap_or_default();
+        return Err(format!("Failed to retrieve items ({}): {}", status, err_text));
+    }
+
+    let items_result: JellyfinItemResponse = items_response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse items response: {}", e))?;
+
+    // 4. Map to AudioMetadata
+    let mut songs = Vec::new();
+    for item in items_result.items {
+        let mut title = item.name;
+        // Strip common audio extensions from title case-insensitively
+        let lower_title = title.to_lowercase();
+        for ext in &[".mp3", ".m4a", ".wav", ".flac", ".ogg", ".aac", ".wma", ".opus", ".aiff"] {
+            if lower_title.ends_with(ext) {
+                let new_len = title.len() - ext.len();
+                title.truncate(new_len);
+                break;
+            }
+        }
+
+        let artist = match item.artists {
+            Some(ref list) if !list.is_empty() => list.join(", "),
+            _ => "Unknown Artist".to_string(),
+        };
+        let album = item.album.unwrap_or_else(|| "Unknown Album".to_string());
+        
+        // Runtime ticks to seconds
+        let duration_secs = match item.run_time_ticks {
+            Some(ticks) if ticks > 0 => (ticks / 10_000_000) as u64,
+            _ => 0,
+        };
+        let duration_formatted = format_duration(duration_secs);
+
+        // Construct cover art URL
+        let has_primary_image = match item.image_tags {
+            Some(ref tags) => tags.contains_key("Primary"),
+            None => false,
+        };
+
+        let cover_art_base64 = if has_primary_image {
+            Some(format!(
+                "{}/Items/{}/Images/Primary?api_key={}",
+                server_url, item.id, token
+            ))
+        } else {
+            None
+        };
+
+        let path = format!(
+            "{}/Audio/{}/stream?static=true&api_key={}",
+            server_url, item.id, token
+        );
+
+        songs.push(AudioMetadata {
+            id: Some(format!("jellyfin-{}", item.id)),
+            title,
+            artist,
+            album,
+            duration_secs,
+            duration_formatted,
+            cover_art_base64,
+            path,
+        });
+    }
+
+    Ok(songs)
+}
+
 // ── App Entry ────────────────────────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -267,7 +445,9 @@ pub fn run() {
             get_asset_url,
             file_exists,
             select_directory,
+            jellyfin_scan_server,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+

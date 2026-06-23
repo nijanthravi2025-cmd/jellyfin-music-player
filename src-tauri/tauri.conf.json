@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Media Player",
-  "version": "0.1.0",
+  "version": "0.1.1-pre.0",
   "identifier": "com.mediaplayer.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -23,10 +23,12 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost https://images.unsplash.com data:; media-src 'self' asset: http://asset.localhost; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src ipc: http://ipc.localhost",
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost https://images.unsplash.com data: http: https:; media-src 'self' asset: http://asset.localhost http: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src ipc: http://ipc.localhost http: https:",
       "assetProtocol": {
         "enable": true,
-        "scope": ["**/*"]
+        "scope": [
+          "**/*"
+        ]
       }
     }
   },

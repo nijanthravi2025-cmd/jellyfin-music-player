@@ -185,6 +185,26 @@ export async function scanMusicDirectory(dirPath) {
 }
 
 /**
+ * Scan a Jellyfin server for audio files (Tauri only)
+ * Returns array of AudioMetadata
+ */
+export async function scanJellyfinServer(serverUrl, username, password) {
+  if (!isTauri()) {
+    console.warn('scanJellyfinServer is only available in Tauri');
+    return [];
+  }
+  try {
+    const invoke = await getInvoke();
+    if (invoke) {
+      return await invoke('jellyfin_scan_server', { url: serverUrl, username, password });
+    }
+  } catch (e) {
+    console.error('scanJellyfinServer failed:', e);
+  }
+  return [];
+}
+
+/**
  * Open native directory selection dialog (Tauri only)
  * Returns the folder path string, or null if cancelled.
  */
@@ -247,6 +267,9 @@ export async function fileExists(filePath) {
  */
 export function getAssetUrl(filePath) {
   if (!filePath) return '';
+  if (filePath.startsWith('http://') || filePath.startsWith('https://') || filePath.startsWith('data:')) {
+    return filePath;
+  }
   if (isTauri()) {
     // Tauri v2 asset protocol URL format
     const normalized = filePath.replace(/\\/g, '/');

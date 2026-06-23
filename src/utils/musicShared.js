@@ -92,6 +92,7 @@ export const addToQueue = (song) => {
   const isAudioFile = (p) => {
     if (!p) return false;
     const lower = p.toLowerCase();
+    if (lower.startsWith("http://") || lower.startsWith("https://")) return true;
     return lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac") || lower.endsWith(".mp4");
   };
 
@@ -159,6 +160,7 @@ export const playTrack = (song, contextSongs = null) => {
   const isAudioFile = (p) => {
     if (!p) return false;
     const lower = p.toLowerCase();
+    if (lower.startsWith("http://") || lower.startsWith("https://")) return true;
     return lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac") || lower.endsWith(".mp4");
   };
 
